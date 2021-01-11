@@ -28,11 +28,11 @@ Here's an example scrape config. This assumes that the exporter is available at 
 
 ## Metrics
 
-| Metric                          | Description                                           | Labels               |
-| ------------------------------- | ----------------------------------------------------- | -------------------- |
-| container_rootfs_inodes_free    | Number of available Inodes                            | pod, namespace, name |
-| container_rootfs_inodes         | Number of Inodes                                      | pod, namespace, name |
-| container_rootfs_inodes_used    | Number of used Inodes                                 | pod, namespace, name |
-| container_rootf_available_bytes | Number of bytes that aren't consumed by the container | pod, namespace, name |
-| container_rootf_capacity_bytes  | Number of bytes that can be consumed by the container | pod, namespace, name |
-| container_rootf_used_bytes      | Number of bytes that are consumed by the container    | pod, namespace, name |
+| Metric                           | Description                                           | Labels               |
+| -------------------------------- | ----------------------------------------------------- | -------------------- |
+| container_rootfs_inodes_free     | Number of available Inodes                            | pod, namespace, name |
+| container_rootfs_inodes          | Number of Inodes                                      | pod, namespace, name |
+| container_rootfs_inodes_used     | Number of used Inodes                                 | pod, namespace, name |
+| container_rootfs_available_bytes | Number of bytes that aren't consumed by the container | pod, namespace, name |
+| container_rootfs_capacity_bytes  | Number of bytes that can be consumed by the container | pod, namespace, name |
+| container_rootfs_used_bytes      | Number of bytes that are consumed by the container    | pod, namespace, name |
