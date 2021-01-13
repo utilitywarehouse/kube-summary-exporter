@@ -26,6 +26,72 @@ var metricsNamespace = "kube_summary"
 // collectSummaryMetrics collects metrics from a /stats/summary response
 func collectSummaryMetrics(summary *stats.Summary, registry *prometheus.Registry) {
 	var (
+		containerLogsInodesFree = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: metricsNamespace,
+			Name:      "container_logs_inodes_free",
+			Help:      "Number of available Inodes for logs",
+		},
+			[]string{
+				"pod",
+				"namespace",
+				"name",
+			},
+		)
+		containerLogsInodes = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: metricsNamespace,
+			Name:      "container_logs_inodes",
+			Help:      "Number of Inodes for logs",
+		},
+			[]string{
+				"pod",
+				"namespace",
+				"name",
+			},
+		)
+		containerLogsInodesUsed = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: metricsNamespace,
+			Name:      "container_logs_inodes_used",
+			Help:      "Number of used Inodes for logs",
+		},
+			[]string{
+				"pod",
+				"namespace",
+				"name",
+			},
+		)
+		containerLogsAvailableBytes = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: metricsNamespace,
+			Name:      "container_logs_available_bytes",
+			Help:      "Number of bytes that aren't consumed by the container logs",
+		},
+			[]string{
+				"pod",
+				"namespace",
+				"name",
+			},
+		)
+		containerLogsCapacityBytes = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: metricsNamespace,
+			Name:      "container_logs_capacity_bytes",
+			Help:      "Number of bytes that can be consumed by the container logs",
+		},
+			[]string{
+				"pod",
+				"namespace",
+				"name",
+			},
+		)
+		containerLogsUsedBytes = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: metricsNamespace,
+			Name:      "container_logs_used_bytes",
+			Help:      "Number of bytes that are consumed by the container logs",
+		},
+			[]string{
+				"pod",
+				"namespace",
+				"name",
+			},
+		)
 		containerRootFsInodesFree = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Namespace: metricsNamespace,
 			Name:      "container_rootfs_inodes_free",
@@ -94,6 +160,12 @@ func collectSummaryMetrics(summary *stats.Summary, registry *prometheus.Registry
 		)
 	)
 	registry.MustRegister(
+		containerLogsInodesFree,
+		containerLogsInodes,
+		containerLogsInodesUsed,
+		containerLogsAvailableBytes,
+		containerLogsCapacityBytes,
+		containerLogsUsedBytes,
 		containerRootFsInodesFree,
 		containerRootFsInodes,
 		containerRootFsInodesUsed,
@@ -104,6 +176,26 @@ func collectSummaryMetrics(summary *stats.Summary, registry *prometheus.Registry
 
 	for _, pod := range summary.Pods {
 		for _, container := range pod.Containers {
+			if logs := container.Logs; logs != nil {
+				if inodesFree := logs.InodesFree; inodesFree != nil {
+					containerLogsInodesFree.WithLabelValues(pod.PodRef.Name, pod.PodRef.Namespace, container.Name).Set(float64(*inodesFree))
+				}
+				if inodes := logs.Inodes; inodes != nil {
+					containerLogsInodes.WithLabelValues(pod.PodRef.Name, pod.PodRef.Namespace, container.Name).Set(float64(*inodes))
+				}
+				if inodesUsed := logs.InodesUsed; inodesUsed != nil {
+					containerLogsInodesUsed.WithLabelValues(pod.PodRef.Name, pod.PodRef.Namespace, container.Name).Set(float64(*inodesUsed))
+				}
+				if availableBytes := logs.AvailableBytes; availableBytes != nil {
+					containerLogsAvailableBytes.WithLabelValues(pod.PodRef.Name, pod.PodRef.Namespace, container.Name).Set(float64(*availableBytes))
+				}
+				if capacityBytes := logs.CapacityBytes; capacityBytes != nil {
+					containerLogsCapacityBytes.WithLabelValues(pod.PodRef.Name, pod.PodRef.Namespace, container.Name).Set(float64(*capacityBytes))
+				}
+				if usedBytes := logs.UsedBytes; usedBytes != nil {
+					containerLogsUsedBytes.WithLabelValues(pod.PodRef.Name, pod.PodRef.Namespace, container.Name).Set(float64(*usedBytes))
+				}
+			}
 			if rootfs := container.Rootfs; rootfs != nil {
 				if inodesFree := rootfs.InodesFree; inodesFree != nil {
 					containerRootFsInodesFree.WithLabelValues(pod.PodRef.Name, pod.PodRef.Namespace, container.Name).Set(float64(*inodesFree))

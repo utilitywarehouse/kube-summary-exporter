@@ -28,11 +28,17 @@ Here's an example scrape config. This assumes that the exporter is available at 
 
 ## Metrics
 
-| Metric                                        | Description                                           | Labels               |
-| --------------------------------------------- | ----------------------------------------------------- | -------------------- |
-| kube_summary_container_rootfs_inodes_free     | Number of available Inodes                            | pod, namespace, name |
-| kube_summary_container_rootfs_inodes          | Number of Inodes                                      | pod, namespace, name |
-| kube_summary_container_rootfs_inodes_used     | Number of used Inodes                                 | pod, namespace, name |
-| kube_summary_container_rootfs_available_bytes | Number of bytes that aren't consumed by the container | pod, namespace, name |
-| kube_summary_container_rootfs_capacity_bytes  | Number of bytes that can be consumed by the container | pod, namespace, name |
-| kube_summary_container_rootfs_used_bytes      | Number of bytes that are consumed by the container    | pod, namespace, name |
+| Metric                                        | Description                                                | Labels               |
+| --------------------------------------------- | ---------------------------------------------------------- | -------------------- |
+| kube_summary_container_logs_inodes_free       | Number of available Inodes for logs                        | pod, namespace, name |
+| kube_summary_container_logs_inodes            | Number of Inodes for logs                                  | pod, namespace, name |
+| kube_summary_container_logs_inodes_used       | Number of used Inodes for logs                             | pod, namespace, name |
+| kube_summary_container_logs_available_bytes   | Number of bytes that aren't consumed by the container logs | pod, namespace, name |
+| kube_summary_container_logs_capacity_bytes    | Number of bytes that can be consumed by the container logs | pod, namespace, name |
+| kube_summary_container_logs_used_bytes        | Number of bytes that are consumed by the container logs    | pod, namespace, name |
+| kube_summary_container_rootfs_inodes_free     | Number of available Inodes                                 | pod, namespace, name |
+| kube_summary_container_rootfs_inodes          | Number of Inodes                                           | pod, namespace, name |
+| kube_summary_container_rootfs_inodes_used     | Number of used Inodes                                      | pod, namespace, name |
+| kube_summary_container_rootfs_available_bytes | Number of bytes that aren't consumed by the container      | pod, namespace, name |
+| kube_summary_container_rootfs_capacity_bytes  | Number of bytes that can be consumed by the container      | pod, namespace, name |
+| kube_summary_container_rootfs_used_bytes      | Number of bytes that are consumed by the container         | pod, namespace, name |
