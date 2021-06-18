@@ -158,6 +158,84 @@ func collectSummaryMetrics(summary *stats.Summary, registry *prometheus.Registry
 				"name",
 			},
 		)
+		volumeInodesFree = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: metricsNamespace,
+			Name:      "volume_inodes_free",
+			Help:      "Number of available Inodes",
+		},
+			[]string{
+				"pod",
+				"namespace",
+				"name",
+				"pvc_name",
+				"pvc_namespace",
+			},
+		)
+		volumeInodes = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: metricsNamespace,
+			Name:      "volume_inodes",
+			Help:      "Number of Inodes",
+		},
+			[]string{
+				"pod",
+				"namespace",
+				"name",
+				"pvc_name",
+				"pvc_namespace",
+			},
+		)
+		volumeInodesUsed = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: metricsNamespace,
+			Name:      "volume_inodes_used",
+			Help:      "Number of used Inodes",
+		},
+			[]string{
+				"pod",
+				"namespace",
+				"name",
+				"pvc_name",
+				"pvc_namespace",
+			},
+		)
+		volumeAvailableBytes = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: metricsNamespace,
+			Name:      "volume_available_bytes",
+			Help:      "Number of bytes that aren't consumed",
+		},
+			[]string{
+				"pod",
+				"namespace",
+				"name",
+				"pvc_name",
+				"pvc_namespace",
+			},
+		)
+		volumeCapacityBytes = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: metricsNamespace,
+			Name:      "volume_capacity_bytes",
+			Help:      "Number of bytes that can be consumed",
+		},
+			[]string{
+				"pod",
+				"namespace",
+				"name",
+				"pvc_name",
+				"pvc_namespace",
+			},
+		)
+		volumeUsedBytes = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: metricsNamespace,
+			Name:      "volume_used_bytes",
+			Help:      "Number of bytes that are consumed",
+		},
+			[]string{
+				"pod",
+				"namespace",
+				"name",
+				"pvc_name",
+				"pvc_namespace",
+			},
+		)
 	)
 	registry.MustRegister(
 		containerLogsInodesFree,
@@ -172,6 +250,12 @@ func collectSummaryMetrics(summary *stats.Summary, registry *prometheus.Registry
 		containerRootFsAvailableBytes,
 		containerRootFsCapacityBytes,
 		containerRootFsUsedBytes,
+		volumeInodesFree,
+		volumeInodes,
+		volumeInodesUsed,
+		volumeAvailableBytes,
+		volumeCapacityBytes,
+		volumeUsedBytes,
 	)
 
 	for _, pod := range summary.Pods {
@@ -215,6 +299,32 @@ func collectSummaryMetrics(summary *stats.Summary, registry *prometheus.Registry
 				if usedBytes := rootfs.UsedBytes; usedBytes != nil {
 					containerRootFsUsedBytes.WithLabelValues(pod.PodRef.Name, pod.PodRef.Namespace, container.Name).Set(float64(*usedBytes))
 				}
+			}
+		}
+		for _, volume := range pod.VolumeStats {
+			var pvcName, pvcNamespace string
+			if volume.PVCRef != nil {
+				pvcName = volume.PVCRef.Name
+				pvcNamespace = volume.PVCRef.Namespace
+			}
+
+			if inodesFree := volume.InodesFree; inodesFree != nil {
+				volumeInodesFree.WithLabelValues(pod.PodRef.Name, pod.PodRef.Namespace, volume.Name, pvcName, pvcNamespace).Set(float64(*inodesFree))
+			}
+			if inodes := volume.Inodes; inodes != nil {
+				volumeInodes.WithLabelValues(pod.PodRef.Name, pod.PodRef.Namespace, volume.Name, pvcName, pvcNamespace).Set(float64(*inodes))
+			}
+			if inodesUsed := volume.InodesUsed; inodesUsed != nil {
+				volumeInodesUsed.WithLabelValues(pod.PodRef.Name, pod.PodRef.Namespace, volume.Name, pvcName, pvcNamespace).Set(float64(*inodesUsed))
+			}
+			if availableBytes := volume.AvailableBytes; availableBytes != nil {
+				volumeAvailableBytes.WithLabelValues(pod.PodRef.Name, pod.PodRef.Namespace, volume.Name, pvcName, pvcNamespace).Set(float64(*availableBytes))
+			}
+			if capacityBytes := volume.CapacityBytes; capacityBytes != nil {
+				volumeCapacityBytes.WithLabelValues(pod.PodRef.Name, pod.PodRef.Namespace, volume.Name, pvcName, pvcNamespace).Set(float64(*capacityBytes))
+			}
+			if usedBytes := volume.UsedBytes; usedBytes != nil {
+				volumeUsedBytes.WithLabelValues(pod.PodRef.Name, pod.PodRef.Namespace, volume.Name, pvcName, pvcNamespace).Set(float64(*usedBytes))
 			}
 		}
 	}
