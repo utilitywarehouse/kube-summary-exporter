@@ -7,7 +7,7 @@ RUN apk --no-cache add git &&\
   go test ./... &&\
   go build -o /kube-summary-exporter .
 
-FROM alpine:3.12
+FROM alpine:3.14
 COPY --from=build /kube-summary-exporter /kube-summary-exporter
 
 ENTRYPOINT [ "/kube-summary-exporter"]
