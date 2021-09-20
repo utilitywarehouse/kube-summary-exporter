@@ -1,13 +1,14 @@
-FROM golang:1.15-alpine AS build
-WORKDIR /go/src/github.com/utilitywarehouse/kube-summary-exporter
-COPY . /go/src/github.com/utilitywarehouse/kube-summary-exporter
+FROM golang:1.17-alpine AS build
+WORKDIR /src
+COPY go.* ./
+RUN go mod download
+COPY . .
 ENV CGO_ENABLED 0
 RUN apk --no-cache add git &&\
-  go get -t ./... &&\
   go test ./... &&\
   go build -o /kube-summary-exporter .
 
-FROM alpine:3.12
+FROM alpine:3.13
 COPY --from=build /kube-summary-exporter /kube-summary-exporter
 
 ENTRYPOINT [ "/kube-summary-exporter"]

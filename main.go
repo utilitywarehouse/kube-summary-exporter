@@ -159,6 +159,66 @@ func collectSummaryMetrics(summary *stats.Summary, registry *prometheus.Registry
 				"name",
 			},
 		)
+		podEphemeralStorageAvailableBytes = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: metricsNamespace,
+			Name:      "pod_ephemeral_storage_available_bytes",
+			Help:      "Number of bytes of Ephemeral storage that aren't consumed by the pod",
+		},
+			[]string{
+				"pod",
+				"namespace",
+			},
+		)
+		podEphemeralStorageCapacityBytes = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: metricsNamespace,
+			Name:      "pod_ephemeral_storage_capacity_bytes",
+			Help:      "Number of bytes of Ephemeral storage that can be consumed by the pod",
+		},
+			[]string{
+				"pod",
+				"namespace",
+			},
+		)
+		podEphemeralStorageUsedBytes = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: metricsNamespace,
+			Name:      "pod_ephemeral_storage_used_bytes",
+			Help:      "Number of bytes of Ephemeral storage that are consumed by the pod",
+		},
+			[]string{
+				"pod",
+				"namespace",
+			},
+		)
+		podEphemeralStorageInodesFree = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: metricsNamespace,
+			Name:      "pod_ephemeral_storage_inodes_free",
+			Help:      "Number of available Inodes for pod Ephemeral storage",
+		},
+			[]string{
+				"pod",
+				"namespace",
+			},
+		)
+		podEphemeralStorageInodes = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: metricsNamespace,
+			Name:      "pod_ephemeral_storage_inodes",
+			Help:      "Number of Inodes for pod Ephemeral storage",
+		},
+			[]string{
+				"pod",
+				"namespace",
+			},
+		)
+		podEphemeralStorageInodesUsed = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: metricsNamespace,
+			Name:      "pod_ephemeral_storage_inodes_used",
+			Help:      "Number of used Inodes for pod Ephemeral storage",
+		},
+			[]string{
+				"pod",
+				"namespace",
+			},
+		)
 	)
 	registry.MustRegister(
 		containerLogsInodesFree,
@@ -173,6 +233,12 @@ func collectSummaryMetrics(summary *stats.Summary, registry *prometheus.Registry
 		containerRootFsAvailableBytes,
 		containerRootFsCapacityBytes,
 		containerRootFsUsedBytes,
+		podEphemeralStorageAvailableBytes,
+		podEphemeralStorageCapacityBytes,
+		podEphemeralStorageUsedBytes,
+		podEphemeralStorageInodesFree,
+		podEphemeralStorageInodes,
+		podEphemeralStorageInodesUsed,
 	)
 
 	for _, pod := range summary.Pods {
@@ -216,6 +282,27 @@ func collectSummaryMetrics(summary *stats.Summary, registry *prometheus.Registry
 				if usedBytes := rootfs.UsedBytes; usedBytes != nil {
 					containerRootFsUsedBytes.WithLabelValues(pod.PodRef.Name, pod.PodRef.Namespace, container.Name).Set(float64(*usedBytes))
 				}
+			}
+		}
+
+		if ephemeralStorage := pod.EphemeralStorage; ephemeralStorage != nil {
+			if ephemeralStorage.AvailableBytes != nil {
+				podEphemeralStorageAvailableBytes.WithLabelValues(pod.PodRef.Name, pod.PodRef.Namespace).Set(float64(*ephemeralStorage.AvailableBytes))
+			}
+			if ephemeralStorage.CapacityBytes != nil {
+				podEphemeralStorageCapacityBytes.WithLabelValues(pod.PodRef.Name, pod.PodRef.Namespace).Set(float64(*ephemeralStorage.CapacityBytes))
+			}
+			if ephemeralStorage.UsedBytes != nil {
+				podEphemeralStorageUsedBytes.WithLabelValues(pod.PodRef.Name, pod.PodRef.Namespace).Set(float64(*ephemeralStorage.UsedBytes))
+			}
+			if ephemeralStorage.InodesFree != nil {
+				podEphemeralStorageInodesFree.WithLabelValues(pod.PodRef.Name, pod.PodRef.Namespace).Set(float64(*ephemeralStorage.InodesFree))
+			}
+			if ephemeralStorage.Inodes != nil {
+				podEphemeralStorageInodes.WithLabelValues(pod.PodRef.Name, pod.PodRef.Namespace).Set(float64(*ephemeralStorage.Inodes))
+			}
+			if ephemeralStorage.InodesUsed != nil {
+				podEphemeralStorageInodesUsed.WithLabelValues(pod.PodRef.Name, pod.PodRef.Namespace).Set(float64(*ephemeralStorage.InodesUsed))
 			}
 		}
 	}
