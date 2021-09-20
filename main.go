@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"html"
 	"net/http"
 	"os"
 	"strconv"
@@ -229,7 +230,7 @@ func nodeHandler(w http.ResponseWriter, r *http.Request, kubeClient *kubernetes.
 		var err error
 		timeoutSeconds, err := strconv.ParseFloat(v, 64)
 		if err != nil {
-			http.Error(w, fmt.Sprintf("Error parsing timeout from X-Prometheus-Scrape-Timeout-Seconds=%s: %v", v, err), http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("Error parsing timeout from X-Prometheus-Scrape-Timeout-Seconds=%s: %v", html.EscapeString(v), err), http.StatusInternalServerError)
 			return
 		}
 		ctx, cancel := context.WithTimeout(r.Context(), time.Duration(timeoutSeconds*float64(time.Second)))
@@ -240,13 +241,13 @@ func nodeHandler(w http.ResponseWriter, r *http.Request, kubeClient *kubernetes.
 	req := kubeClient.CoreV1().RESTClient().Get().Resource("nodes").Name(node).SubResource("proxy").Suffix("stats/summary")
 	resp, err := req.DoRaw(r.Context())
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error querying /stats/summary for %s: %v", node, err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Error querying /stats/summary for %s: %v", html.EscapeString(node), err), http.StatusInternalServerError)
 		return
 	}
 
 	summary := &stats.Summary{}
 	if err := json.Unmarshal(resp, summary); err != nil {
-		http.Error(w, fmt.Sprintf("Error unmarshaling /stats/summary response for %s: %v", node, err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Error unmarshaling /stats/summary response for %s: %v", html.EscapeString(node), err), http.StatusInternalServerError)
 		return
 	}
 
