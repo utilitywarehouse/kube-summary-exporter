@@ -1,6 +1,6 @@
 module github.com/utilitywarehouse/kube-summary-exporter
 
-go 1.17
+go 1.19
 
 require (
 	github.com/gorilla/mux v1.8.0
