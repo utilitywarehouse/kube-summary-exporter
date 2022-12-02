@@ -1,0 +1,122 @@
+{
+    "pods": [
+        {
+            "podRef": {
+                "name": "dev-server-0",
+                "namespace": "mon",
+                "uid": "93b0b04d-1ebe-4ad0-ada0-c29172c1ab9c"
+            },
+            "startTime": "2022-11-30T11:42:08Z",
+            "containers": [
+                {
+                    "name": "dev-server",
+                    "startTime": "2022-11-30T11:42:10Z",
+                    "cpu": {
+                        "time": "2022-11-30T14:14:40Z",
+                        "usageNanoCores": 268106954,
+                        "usageCoreNanoSeconds": 6650306864000
+                    },
+                    "memory": {
+                        "time": "2022-11-30T14:14:40Z",
+                        "availableBytes": 552603648,
+                        "usageBytes": 539209728,
+                        "workingSetBytes": 495972352,
+                        "rssBytes": 118317056,
+                        "pageFaults": 14962868,
+                        "majorPageFaults": 3500
+                    },
+                    "rootfs": {
+                        "time": "2022-11-30T14:14:37Z",
+                        "availableBytes": 90016837632,
+                        "capacityBytes": 101535985664,
+                        "usedBytes": 114688,
+                        "inodesFree": 25355212,
+                        "inodes": 25474432,
+                        "inodesUsed": 14
+                    },
+                    "logs": {
+                        "time": "2022-11-30T14:14:41Z",
+                        "availableBytes": 90016837632,
+                        "capacityBytes": 101535985664,
+                        "usedBytes": 8192,
+                        "inodesFree": 25355212,
+                        "inodes": 25474432,
+                        "inodesUsed": 1
+                    }
+                }
+            ],
+            "cpu": {
+                "time": "2022-11-30T14:14:27Z",
+                "usageNanoCores": 390813248,
+                "usageCoreNanoSeconds": 8446621581000
+            },
+            "memory": {
+                "time": "2022-11-30T14:14:27Z",
+                "availableBytes": 1310638080,
+                "usageBytes": 835383296,
+                "workingSetBytes": 786513920,
+                "rssBytes": 241803264,
+                "pageFaults": 23482811,
+                "majorPageFaults": 7232
+            },
+            "network": {
+                "time": "2022-11-30T14:14:40Z",
+                "name": "eth0",
+                "rxBytes": 14522059300,
+                "rxErrors": 0,
+                "txBytes": 14549131546,
+                "txErrors": 0,
+                "interfaces": [
+                    {
+                        "name": "tunl0",
+                        "rxBytes": 0,
+                        "rxErrors": 0,
+                        "txBytes": 0,
+                        "txErrors": 0
+                    },
+                    {
+                        "name": "eth0",
+                        "rxBytes": 14522059300,
+                        "rxErrors": 0,
+                        "txBytes": 14549131546,
+                        "txErrors": 0
+                    }
+                ]
+            },
+            "volume": [
+                {
+                    "time": "2022-11-30T14:12:48Z",
+                    "availableBytes": 90016899072,
+                    "capacityBytes": 101535985664,
+                    "usedBytes": 12288,
+                    "inodesFree": 25355211,
+                    "inodes": 25474432,
+                    "inodesUsed": 2,
+                    "name": "plugins"
+                },
+                {
+                    "time": "2022-11-30T14:12:48Z",
+                    "availableBytes": 90016899072,
+                    "capacityBytes": 101535985664,
+                    "usedBytes": 133500928,
+                    "inodesFree": 25355211,
+                    "inodes": 25474432,
+                    "inodesUsed": 2,
+                    "name": "var-files"
+                }
+            ],
+            "ephemeral-storage": {
+                "time": "2022-11-30T14:14:41Z",
+                "availableBytes": 90016837632,
+                "capacityBytes": 101535985664,
+                "usedBytes": 133947392,
+                "inodesFree": 25355212,
+                "inodes": 25474432,
+                "inodesUsed": 63
+            },
+            "process_stats": {
+                "process_count": 0
+            }
+        }
+    ]
+}

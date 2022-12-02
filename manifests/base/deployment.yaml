@@ -1,0 +1,42 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kube-summary-exporter
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    name: kube-summary-exporter
+  name: kube-summary-exporter
+spec:
+  ports:
+    - name: kube-summary-exporter
+      protocol: TCP
+      port: 9779
+      targetPort: 9779
+  selector:
+    app: kube-summary-exporter
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kube-summary-exporter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kube-summary-exporter
+  template:
+    metadata:
+      name: kube-summary-exporter
+      labels:
+        app: kube-summary-exporter
+    spec:
+      serviceAccountName: kube-summary-exporter
+      containers:
+        - name: kube-summary-exporter
+          image: quay.io/utilitywarehouse/kube-summary-exporter:latest
+          ports:
+            - name: tcp
+              containerPort: 9779

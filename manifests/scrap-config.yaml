@@ -1,0 +1,14 @@
+# Scrape config for the Summary API exporter.
+# This assumes that the exporter is available at kube-summary-exporter:9779
+- job_name: "kubernetes-summary"
+  kubernetes_sd_configs:
+    - role: node
+  relabel_configs:
+    - action: labelmap
+      regex: __meta_kubernetes_node_label_(.+)
+    - source_labels: [__meta_kubernetes_node_name]
+      regex: (.+)
+      target_label: __metrics_path__
+      replacement: /node/${1}
+    - target_label: __address__
+      replacement: kube-summary-exporter:9779
