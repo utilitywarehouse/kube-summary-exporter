@@ -5,7 +5,7 @@ go 1.20
 require (
 	github.com/google/go-cmp v0.5.9
 	github.com/gorilla/mux v1.8.0
-	github.com/prometheus/client_golang v1.15.0
+	github.com/prometheus/client_golang v1.15.1
 	k8s.io/client-go v0.27.1
 	k8s.io/kubelet v0.27.1
 )
