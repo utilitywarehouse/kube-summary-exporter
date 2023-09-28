@@ -38,3 +38,9 @@ cluster set in kube config.
 | kube_summary_pod_ephemeral_storage_inodes_free     | Number of available Inodes for pod Ephemeral storage                 | pod, namespace       |
 | kube_summary_pod_ephemeral_storage_inodes          | Number of Inodes for pod Ephemeral storage                           | pod, namespace       |
 | kube_summary_pod_ephemeral_storage_inodes_used     | Number of used Inodes for pod Ephemeral storage                      | pod, namespace       |
+| kube_summary_node_runtime_imagefs_available_bytes  | Number of bytes of node Runtime ImageFS that aren't consumed         | node                 |
+| kube_summary_node_runtime_imagefs_capacity_bytes   | Number of bytes of node Runtime ImageFS that can be consumed         | node                 |
+| kube_summary_node_runtime_imagefs_used_bytes       | Number of bytes of node Runtime ImageFS that are consumed            | node                 |
+| kube_summary_node_runtime_imagefs_inodes_free      | Number of available Inodes for node Runtime ImageFS                  | node                 |
+| kube_summary_node_runtime_imagefs_inodes           | Number of Inodes for node Runtime ImageFS                            | node                 |
+| kube_summary_node_runtime_imagefs_inodes_used      | Number of used Inodes for node Runtime ImageFS                       | node                 |

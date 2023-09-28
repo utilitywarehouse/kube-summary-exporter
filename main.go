@@ -219,6 +219,60 @@ func collectSummaryMetrics(summary *stats.Summary, registry *prometheus.Registry
 				"namespace",
 			},
 		)
+		nodeRuntimeImageFSAvailableBytes = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: metricsNamespace,
+			Name:      "node_runtime_imagefs_available_bytes",
+			Help:      "Number of bytes of node Runtime ImageFS that aren't consumed",
+		},
+			[]string{
+				"node",
+			},
+		)
+		nodeRuntimeImageFSCapacityBytes = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: metricsNamespace,
+			Name:      "node_runtime_imagefs_capacity_bytes",
+			Help:      "Number of bytes of node Runtime ImageFS that can be consumed",
+		},
+			[]string{
+				"node",
+			},
+		)
+		nodeRuntimeImageFSUsedBytes = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: metricsNamespace,
+			Name:      "node_runtime_imagefs_used_bytes",
+			Help:      "Number of bytes of node Runtime ImageFS that are consumed",
+		},
+			[]string{
+				"node",
+			},
+		)
+		nodeRuntimeImageFSInodesFree = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: metricsNamespace,
+			Name:      "node_runtime_imagefs_inodes_free",
+			Help:      "Number of available Inodes for node Runtime ImageFS",
+		},
+			[]string{
+				"node",
+			},
+		)
+		nodeRuntimeImageFSInodes = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: metricsNamespace,
+			Name:      "node_runtime_imagefs_inodes",
+			Help:      "Number of Inodes for node Runtime ImageFS",
+		},
+			[]string{
+				"node",
+			},
+		)
+		nodeRuntimeImageFSInodesUsed = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: metricsNamespace,
+			Name:      "node_runtime_imagefs_inodes_used",
+			Help:      "Number of used Inodes for node Runtime ImageFS",
+		},
+			[]string{
+				"node",
+			},
+		)
 	)
 	registry.MustRegister(
 		containerLogsInodesFree,
@@ -239,6 +293,12 @@ func collectSummaryMetrics(summary *stats.Summary, registry *prometheus.Registry
 		podEphemeralStorageInodesFree,
 		podEphemeralStorageInodes,
 		podEphemeralStorageInodesUsed,
+		nodeRuntimeImageFSAvailableBytes,
+		nodeRuntimeImageFSCapacityBytes,
+		nodeRuntimeImageFSUsedBytes,
+		nodeRuntimeImageFSInodesFree,
+		nodeRuntimeImageFSInodes,
+		nodeRuntimeImageFSInodesUsed,
 	)
 
 	for _, pod := range summary.Pods {
@@ -306,6 +366,29 @@ func collectSummaryMetrics(summary *stats.Summary, registry *prometheus.Registry
 			}
 		}
 	}
+
+	if runtime := summary.Node.Runtime; runtime != nil {
+		nodeName := summary.Node.NodeName
+		if runtime.ImageFs.AvailableBytes != nil {
+			nodeRuntimeImageFSAvailableBytes.WithLabelValues(nodeName).Set(float64(*runtime.ImageFs.AvailableBytes))
+		}
+		if runtime.ImageFs.CapacityBytes != nil {
+			nodeRuntimeImageFSCapacityBytes.WithLabelValues(nodeName).Set(float64(*runtime.ImageFs.CapacityBytes))
+		}
+		if runtime.ImageFs.UsedBytes != nil {
+			nodeRuntimeImageFSUsedBytes.WithLabelValues(nodeName).Set(float64(*runtime.ImageFs.UsedBytes))
+		}
+		if runtime.ImageFs.InodesFree != nil {
+			nodeRuntimeImageFSInodesFree.WithLabelValues(nodeName).Set(float64(*runtime.ImageFs.InodesFree))
+		}
+		if runtime.ImageFs.Inodes != nil {
+			nodeRuntimeImageFSInodes.WithLabelValues(nodeName).Set(float64(*runtime.ImageFs.Inodes))
+		}
+		if runtime.ImageFs.InodesUsed != nil {
+			nodeRuntimeImageFSInodesUsed.WithLabelValues(nodeName).Set(float64(*runtime.ImageFs.InodesUsed))
+		}
+	}
+
 }
 
 // nodeHandler returns metrics for the /stats/summary API of the given node
