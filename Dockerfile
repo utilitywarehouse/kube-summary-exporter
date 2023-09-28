@@ -1,4 +1,4 @@
-FROM golang:1.20-alpine AS build
+FROM golang:1.21-alpine AS build
 WORKDIR /src
 COPY go.* ./
 RUN go mod download
@@ -8,7 +8,7 @@ RUN apk --no-cache add git &&\
   go test ./... &&\
   go build -o /kube-summary-exporter .
 
-FROM alpine:3.17
+FROM alpine:3.18
 COPY --from=build /kube-summary-exporter /kube-summary-exporter
 
 ENTRYPOINT [ "/kube-summary-exporter"]
