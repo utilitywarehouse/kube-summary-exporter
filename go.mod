@@ -7,7 +7,7 @@ require (
 	github.com/gorilla/mux v1.8.1
 	github.com/prometheus/client_golang v1.19.0
 	k8s.io/client-go v0.29.2
-	k8s.io/kubelet v0.29.1
+	k8s.io/kubelet v0.29.2
 )
 
 require (
