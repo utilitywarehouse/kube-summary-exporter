@@ -1,14 +1,14 @@
 module github.com/utilitywarehouse/kube-summary-exporter
 
 go 1.21
-toolchain go1.22.4
+toolchain go1.22.5
 
 require (
 	github.com/google/go-cmp v0.6.0
 	github.com/gorilla/mux v1.8.1
 	github.com/prometheus/client_golang v1.19.1
-	k8s.io/client-go v0.30.2
-	k8s.io/kubelet v0.30.2
+	k8s.io/client-go v0.30.3
+	k8s.io/kubelet v0.30.3
 )
 
 require (
@@ -47,8 +47,8 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/api v0.30.2 // indirect
-	k8s.io/apimachinery v0.30.2 // indirect
+	k8s.io/api v0.30.3 // indirect
+	k8s.io/apimachinery v0.30.3 // indirect
 	k8s.io/klog/v2 v2.120.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20240228011516-70dd3763d340 // indirect
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b // indirect
