@@ -8,7 +8,7 @@ require (
 	github.com/google/go-cmp v0.6.0
 	github.com/gorilla/mux v1.8.1
 	github.com/prometheus/client_golang v1.20.2
-	k8s.io/client-go v0.31.0
+	k8s.io/client-go v0.31.1
 	k8s.io/kubelet v0.31.0
 )
 
@@ -50,8 +50,8 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/api v0.31.0 // indirect
-	k8s.io/apimachinery v0.31.0 // indirect
+	k8s.io/api v0.31.1 // indirect
+	k8s.io/apimachinery v0.31.1 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20240826222958-65a50c78dec5 // indirect
 	k8s.io/utils v0.0.0-20240821151609-f90d01438635 // indirect
