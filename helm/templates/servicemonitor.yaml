@@ -1,0 +1,19 @@
+{{- if .Values.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "kube-summary-exporter.fullname" . }}
+  labels:
+    {{- include "kube-summary-exporter.labels" . | nindent 4 }}
+    {{- with .Values.serviceMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    {{- include "kube-summary-exporter.selectorLabels" . | nindent 4 }}
+  endpoints:
+  - port: metrics
+    path: /metrics
+  - port: metrics
+    path: /nodes
+{{- end }}
