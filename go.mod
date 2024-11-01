@@ -7,7 +7,7 @@ toolchain go1.23.0
 require (
 	github.com/google/go-cmp v0.6.0
 	github.com/gorilla/mux v1.8.1
-	github.com/prometheus/client_golang v1.20.4
+	github.com/prometheus/client_golang v1.20.5
 	k8s.io/client-go v0.31.2
 	k8s.io/kubelet v0.31.1
 )
