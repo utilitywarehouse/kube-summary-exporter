@@ -429,9 +429,10 @@ func nodeHandler(w http.ResponseWriter, r *http.Request, kubeClient *kubernetes.
 	h.ServeHTTP(w, r)
 }
 
-// newKubeClient returns a Kubernetes client (clientset) from the supplied
-// kubeconfig path, the KUBECONFIG environment variable, the default config file
-// location ($HOME/.kube/config) or from the in-cluster service account environment.
+// newKubeClient returns a Kubernetes client (clientset) with configurable
+// rate limits from a supplied kubeconfig path, the KUBECONFIG environment variable,
+// the default config file location ($HOME/.kube/config), or from the in-cluster
+// service account environment.
 func newKubeClient(path string) (*kubernetes.Clientset, error) {
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 	if path != "" {
@@ -447,6 +448,10 @@ func newKubeClient(path string) (*kubernetes.Clientset, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Set rate limits to reduce client-side throttling
+	config.QPS = 100
+	config.Burst = 200
 
 	return kubernetes.NewForConfig(config)
 }
