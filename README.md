@@ -1,6 +1,6 @@
 # kube-summary-exporter
 
-Exports prometheus metrics for the Kubernetes Summary API.
+Exports Prometheus metrics for the Kubernetes Summary API.
 
 This exists because of: https://github.com/google/cadvisor/issues/2785
 
@@ -22,7 +22,7 @@ cluster set in kube config.
 
 You can also visit http://localhost:9779/nodes to retrieve metrics for all nodes in the cluster.
 
-[Here's an example scrape config.](manifests/scrap-config.yaml)
+[Here's an example scrape config.](manifests/scrape-config.yaml)
 
 ## Endpoints
 

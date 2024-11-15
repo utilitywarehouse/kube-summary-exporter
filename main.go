@@ -25,30 +25,30 @@ import (
 var metricsNamespace = "kube_summary"
 
 type Collectors struct {
-	containerLogsInodesFree            *prometheus.GaugeVec
-	containerLogsInodes                *prometheus.GaugeVec
-	containerLogsInodesUsed            *prometheus.GaugeVec
-	containerLogsAvailableBytes        *prometheus.GaugeVec
-	containerLogsCapacityBytes         *prometheus.GaugeVec
-	containerLogsUsedBytes             *prometheus.GaugeVec
-	containerRootFsInodesFree          *prometheus.GaugeVec
-	containerRootFsInodes              *prometheus.GaugeVec
-	containerRootFsInodesUsed          *prometheus.GaugeVec
-	containerRootFsAvailableBytes      *prometheus.GaugeVec
-	containerRootFsCapacityBytes       *prometheus.GaugeVec
-	containerRootFsUsedBytes           *prometheus.GaugeVec
-	podEphemeralStorageAvailableBytes  *prometheus.GaugeVec
-	podEphemeralStorageCapacityBytes   *prometheus.GaugeVec
-	podEphemeralStorageUsedBytes       *prometheus.GaugeVec
-	podEphemeralStorageInodesFree      *prometheus.GaugeVec
-	podEphemeralStorageInodes          *prometheus.GaugeVec
-	podEphemeralStorageInodesUsed      *prometheus.GaugeVec
-	nodeRuntimeImageFSAvailableBytes   *prometheus.GaugeVec
-	nodeRuntimeImageFSCapacityBytes    *prometheus.GaugeVec
-	nodeRuntimeImageFSUsedBytes        *prometheus.GaugeVec
-	nodeRuntimeImageFSInodesFree       *prometheus.GaugeVec
-	nodeRuntimeImageFSInodes           *prometheus.GaugeVec
-	nodeRuntimeImageFSInodesUsed       *prometheus.GaugeVec
+	containerLogsInodesFree           *prometheus.GaugeVec
+	containerLogsInodes               *prometheus.GaugeVec
+	containerLogsInodesUsed           *prometheus.GaugeVec
+	containerLogsAvailableBytes       *prometheus.GaugeVec
+	containerLogsCapacityBytes        *prometheus.GaugeVec
+	containerLogsUsedBytes            *prometheus.GaugeVec
+	containerRootFsInodesFree         *prometheus.GaugeVec
+	containerRootFsInodes             *prometheus.GaugeVec
+	containerRootFsInodesUsed         *prometheus.GaugeVec
+	containerRootFsAvailableBytes     *prometheus.GaugeVec
+	containerRootFsCapacityBytes      *prometheus.GaugeVec
+	containerRootFsUsedBytes          *prometheus.GaugeVec
+	podEphemeralStorageAvailableBytes *prometheus.GaugeVec
+	podEphemeralStorageCapacityBytes  *prometheus.GaugeVec
+	podEphemeralStorageUsedBytes      *prometheus.GaugeVec
+	podEphemeralStorageInodesFree     *prometheus.GaugeVec
+	podEphemeralStorageInodes         *prometheus.GaugeVec
+	podEphemeralStorageInodesUsed     *prometheus.GaugeVec
+	nodeRuntimeImageFSAvailableBytes  *prometheus.GaugeVec
+	nodeRuntimeImageFSCapacityBytes   *prometheus.GaugeVec
+	nodeRuntimeImageFSUsedBytes       *prometheus.GaugeVec
+	nodeRuntimeImageFSInodesFree      *prometheus.GaugeVec
+	nodeRuntimeImageFSInodes          *prometheus.GaugeVec
+	nodeRuntimeImageFSInodesUsed      *prometheus.GaugeVec
 }
 
 func newCollectors() *Collectors {
@@ -372,9 +372,10 @@ func getTimeoutContext(r *http.Request) (context.Context, context.CancelFunc) {
 	return context.WithCancel(r.Context())
 }
 
-// newKubeClient returns a Kubernetes client (clientset) from the supplied
-// kubeconfig path, the KUBECONFIG environment variable, the default config file
-// location ($HOME/.kube/config) or from the in-cluster service account environment.
+// newKubeClient returns a Kubernetes client (clientset) with configurable
+// rate limits from a supplied kubeconfig path, the KUBECONFIG environment variable,
+// the default config file location ($HOME/.kube/config), or from the in-cluster
+// service account environment.
 func newKubeClient(path string) (*kubernetes.Clientset, error) {
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 	if path != "" {
@@ -390,6 +391,10 @@ func newKubeClient(path string) (*kubernetes.Clientset, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Set rate limits to reduce client-side throttling
+	config.QPS = 100
+	config.Burst = 200
 
 	return kubernetes.NewForConfig(config)
 }

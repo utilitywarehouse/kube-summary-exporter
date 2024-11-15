@@ -4,8 +4,9 @@
   kubernetes_sd_configs:
     - role: node
   relabel_configs:
-    - action: labelmap
-      regex: __meta_kubernetes_node_label_(.+)
+    - source_labels: [__meta_kubernetes_node_label_role]
+      action: replace
+      target_label: role
     - source_labels: [__meta_kubernetes_node_name]
       regex: (.+)
       target_label: __metrics_path__
