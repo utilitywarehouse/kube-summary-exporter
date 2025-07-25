@@ -36,7 +36,7 @@ spec:
       serviceAccountName: kube-summary-exporter
       containers:
         - name: kube-summary-exporter
-          image: quay.io/utilitywarehouse/kube-summary-exporter:v0.4.6
+          image: quay.io/utilitywarehouse/kube-summary-exporter:latest
           ports:
             - name: tcp
               containerPort: 9779
