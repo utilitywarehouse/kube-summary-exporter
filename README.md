@@ -38,38 +38,39 @@ You can also visit http://localhost:9779/nodes to retrieve metrics for all nodes
 
 ## Metrics
 
-| Metric                                             | Description                                                          | Labels                     |
-| -------------------------------------------------- | -------------------------------------------------------------------- | -------------------------- |
-| kube_summary_container_logs_available_bytes        | Number of bytes that aren't consumed by the container logs           | node, pod, namespace, name |
-| kube_summary_container_logs_capacity_bytes         | Number of bytes that can be consumed by the container logs           | node, pod, namespace, name |
-| kube_summary_container_logs_inodes                 | Number of Inodes for logs                                            | node, pod, namespace, name |
-| kube_summary_container_logs_inodes_free            | Number of available Inodes for logs                                  | node, pod, namespace, name |
-| kube_summary_container_logs_inodes_used            | Number of used Inodes for logs                                       | node, pod, namespace, name |
-| kube_summary_container_logs_used_bytes             | Number of bytes that are consumed by the container logs              | node, pod, namespace, name |
-| kube_summary_container_rootfs_available_bytes      | Number of bytes that aren't consumed by the container                | node, pod, namespace, name |
-| kube_summary_container_rootfs_capacity_bytes       | Number of bytes that can be consumed by the container                | node, pod, namespace, name |
-| kube_summary_container_rootfs_inodes               | Number of Inodes                                                     | node, pod, namespace, name |
-| kube_summary_container_rootfs_inodes_free          | Number of available Inodes                                           | node, pod, namespace, name |
-| kube_summary_container_rootfs_inodes_used          | Number of used Inodes                                                | node, pod, namespace, name |
-| kube_summary_container_rootfs_used_bytes           | Number of bytes that are consumed by the container                   | node, pod, namespace, name |
-| kube_summary_node_runtime_imagefs_available_bytes  | Number of bytes of node Runtime ImageFS that aren't consumed         | node                       |
-| kube_summary_node_runtime_imagefs_capacity_bytes   | Number of bytes of node Runtime ImageFS that can be consumed         | node                       |
-| kube_summary_node_runtime_imagefs_inodes           | Number of Inodes for node Runtime ImageFS                            | node                       |
-| kube_summary_node_runtime_imagefs_inodes_free      | Number of available Inodes for node Runtime ImageFS                  | node                       |
-| kube_summary_node_runtime_imagefs_inodes_used      | Number of used Inodes for node Runtime ImageFS                       | node                       |
-| kube_summary_node_runtime_imagefs_used_bytes       | Number of bytes of node Runtime ImageFS that are consumed            | node                       |
-| kube_summary_pod_ephemeral_storage_available_bytes | Number of bytes of Ephemeral storage that aren't consumed by the pod | node, pod, namespace       |
-| kube_summary_pod_ephemeral_storage_capacity_bytes  | Number of bytes of Ephemeral storage that can be consumed by the pod | node, pod, namespace       |
-| kube_summary_pod_ephemeral_storage_inodes          | Number of Inodes for pod Ephemeral storage                           | node, pod, namespace       |
-| kube_summary_pod_ephemeral_storage_inodes_free     | Number of available Inodes for pod Ephemeral storage                 | node, pod, namespace       |
-| kube_summary_pod_ephemeral_storage_inodes_used     | Number of used Inodes for pod Ephemeral storage                      | node, pod, namespace       |
-| kube_summary_pod_ephemeral_storage_used_bytes      | Number of bytes of Ephemeral storage that are consumed by the pod    | node, pod, namespace       |
+| Metric                                             | Description                                                          | Labels                          |
+| -------------------------------------------------- | -------------------------------------------------------------------- | ------------------------------- |
+| kube_summary_container_logs_available_bytes        | Number of bytes that aren't consumed by the container logs           | node, pod, uid, namespace, name |
+| kube_summary_container_logs_capacity_bytes         | Number of bytes that can be consumed by the container logs           | node, pod, uid, namespace, name |
+| kube_summary_container_logs_inodes                 | Number of Inodes for logs                                            | node, pod, uid, namespace, name |
+| kube_summary_container_logs_inodes_free            | Number of available Inodes for logs                                  | node, pod, uid, namespace, name |
+| kube_summary_container_logs_inodes_used            | Number of used Inodes for logs                                       | node, pod, uid, namespace, name |
+| kube_summary_container_logs_used_bytes             | Number of bytes that are consumed by the container logs              | node, pod, uid, namespace, name |
+| kube_summary_container_rootfs_available_bytes      | Number of bytes that aren't consumed by the container                | node, pod, uid, namespace, name |
+| kube_summary_container_rootfs_capacity_bytes       | Number of bytes that can be consumed by the container                | node, pod, uid, namespace, name |
+| kube_summary_container_rootfs_inodes               | Number of Inodes                                                     | node, pod, uid, namespace, name |
+| kube_summary_container_rootfs_inodes_free          | Number of available Inodes                                           | node, pod, uid, namespace, name |
+| kube_summary_container_rootfs_inodes_used          | Number of used Inodes                                                | node, pod, uid, namespace, name |
+| kube_summary_container_rootfs_used_bytes           | Number of bytes that are consumed by the container                   | node, pod, uid, namespace, name |
+| kube_summary_node_runtime_imagefs_available_bytes  | Number of bytes of node Runtime ImageFS that aren't consumed         | node                            |
+| kube_summary_node_runtime_imagefs_capacity_bytes   | Number of bytes of node Runtime ImageFS that can be consumed         | node                            |
+| kube_summary_node_runtime_imagefs_inodes           | Number of Inodes for node Runtime ImageFS                            | node                            |
+| kube_summary_node_runtime_imagefs_inodes_free      | Number of available Inodes for node Runtime ImageFS                  | node                            |
+| kube_summary_node_runtime_imagefs_inodes_used      | Number of used Inodes for node Runtime ImageFS                       | node                            |
+| kube_summary_node_runtime_imagefs_used_bytes       | Number of bytes of node Runtime ImageFS that are consumed            | node                            |
+| kube_summary_pod_ephemeral_storage_available_bytes | Number of bytes of Ephemeral storage that aren't consumed by the pod | node, pod, uid, namespace       |
+| kube_summary_pod_ephemeral_storage_capacity_bytes  | Number of bytes of Ephemeral storage that can be consumed by the pod | node, pod, uid, namespace       |
+| kube_summary_pod_ephemeral_storage_inodes          | Number of Inodes for pod Ephemeral storage                           | node, pod, uid, namespace       |
+| kube_summary_pod_ephemeral_storage_inodes_free     | Number of available Inodes for pod Ephemeral storage                 | node, pod, uid, namespace       |
+| kube_summary_pod_ephemeral_storage_inodes_used     | Number of used Inodes for pod Ephemeral storage                      | node, pod, uid, namespace       |
+| kube_summary_pod_ephemeral_storage_used_bytes      | Number of bytes of Ephemeral storage that are consumed by the pod    | node, pod, uid, namespace       |
 
 ## Development
 
 ### Running Tests
 
 To run the tests, use the following command:
+
 ```
 go test ./...
 ```
