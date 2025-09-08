@@ -75,6 +75,9 @@ rbac:
   # Rules for the ClusterRole
   rules:
     - apiGroups: [""]
+      resources: ["nodes"]
+      verbs: ["get", "list"]
+    - apiGroups: [""]
       resources: ["nodes/proxy"]
       verbs: ["get"]
 
