@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -338,15 +339,48 @@ func allNodesHandler(w http.ResponseWriter, r *http.Request, kubeClient *kuberne
 	registry := prometheus.NewRegistry()
 	collectors.register(registry)
 
-	for _, node := range nodes.Items {
-		summary, err := nodeSummary(ctx, kubeClient, node.Name)
-		if err != nil {
-			http.Error(w, fmt.Sprintf("Error querying /stats/summary for %s: %v", node.Name, err), http.StatusInternalServerError)
-			return
-		}
-		collectSummaryMetrics(summary, collectors)
+	type result struct {
+		summary *stats.Summary
+		node    string
+		err     error
 	}
 
+	results := make(chan result, len(nodes.Items))
+	var wg sync.WaitGroup
+
+	// Process each node concurrently
+	for _, node := range nodes.Items {
+		wg.Add(1)
+		go func(n string) {
+			defer wg.Done()
+
+			// Each nodeSummary call gets the shared context (with timeout)
+			summary, err := nodeSummary(ctx, kubeClient, n)
+			results <- result{
+				summary: summary,
+				node:    n,
+				err:     err,
+			}
+		}(node.Name)
+	}
+
+	// Close channel when all node scrapes finish
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	// Consume results
+	for res := range results {
+		if res.err != nil {
+			// Log error but DO NOT fail the whole scrape
+			fmt.Printf("Error scraping %s: %v\n", res.node, res.err)
+			continue
+		}
+		collectSummaryMetrics(res.summary, collectors)
+	}
+
+	// Return all aggregated metrics
 	h := promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
 	h.ServeHTTP(w, r)
 }
