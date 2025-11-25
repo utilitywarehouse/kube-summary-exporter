@@ -1,0 +1,18 @@
+apiVersion: v2
+name: kube-summary-exporter
+description: A Helm chart for kube-summary-exporter - Exports Prometheus metrics for the Kubernetes Summary API
+type: application
+version: 0.1.0
+appVersion: "latest"
+keywords:
+  - kubernetes
+  - prometheus
+  - monitoring
+  - metrics
+  - summary-api
+home: https://github.com/utilitywarehouse/kube-summary-exporter
+sources:
+  - https://github.com/utilitywarehouse/kube-summary-exporter
+maintainers:
+  - name: kube-summary-exporter
+    url: https://github.com/utilitywarehouse/kube-summary-exporter

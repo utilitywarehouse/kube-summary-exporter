@@ -1,0 +1,39 @@
+1. Get the application URL by running these commands:
+{{- if contains "NodePort" .Values.service.type }}
+  export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "kube-summary-exporter.fullname" . }})
+  export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo http://$NODE_IP:$NODE_PORT
+{{- else if contains "LoadBalancer" .Values.service.type }}
+     NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+           You can watch the status of by running 'kubectl get --namespace {{ .Release.Namespace }} svc -w {{ include "kube-summary-exporter.fullname" . }}'
+  export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "kube-summary-exporter.fullname" . }} --template "{{"{{ range (index .status.loadBalancer.ingress 0) }}{{.}}{{ end }}"}}")
+  echo http://$SERVICE_IP:{{ .Values.service.port }}
+{{- else if contains "ClusterIP" .Values.service.type }}
+  export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "kube-summary-exporter.name" . }},app.kubernetes.io/instance={{ .Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
+  export CONTAINER_PORT=$(kubectl get pod --namespace {{ .Release.Namespace }} $POD_NAME -o jsonpath="{.spec.containers[0].ports[0].containerPort}")
+  echo "Visit http://127.0.0.1:9779 to use your application"
+  kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME 9779:$CONTAINER_PORT
+{{- end }}
+
+2. kube-summary-exporter provides the following endpoints:
+   - /: Home page with links to other endpoints
+   - /nodes: Metrics for all nodes in the cluster
+   - /node/{node}: Metrics for a specific node
+   - /metrics: Prometheus metrics about the exporter itself
+
+3. Example Prometheus scrape configuration:
+   Add the following to your Prometheus configuration to scrape metrics:
+
+   - job_name: "kubernetes-summary"
+     kubernetes_sd_configs:
+       - role: node
+     relabel_configs:
+       - source_labels: [__meta_kubernetes_node_label_role]
+         action: replace
+         target_label: role
+       - source_labels: [__meta_kubernetes_node_name]
+         regex: (.+)
+         target_label: __metrics_path__
+         replacement: /node/${1}
+       - target_label: __address__
+         replacement: {{ include "kube-summary-exporter.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.port }}
