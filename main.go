@@ -158,32 +158,32 @@ func newCollectors() *Collectors {
 			Namespace: metricsNamespace,
 			Name:      "pod_volume_storage_available_bytes",
 			Help:      "Number of bytes of Volume storage that aren't consumed by the pod",
-		}, []string{"node", "pod", "uid", "namespace", "name", "pvc_name", "pvc_namespace"}),
+		}, []string{"node", "pod", "uid", "namespace", "name", "persistentvolumeclaim", "pvc_namespace"}),
 		podVolumeStorageCapacityBytes: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Namespace: metricsNamespace,
 			Name:      "pod_volume_storage_capacity_bytes",
 			Help:      "Number of bytes of Volume storage that can be consumed by the pod",
-		}, []string{"node", "pod", "uid", "namespace", "name", "pvc_name", "pvc_namespace"}),
+		}, []string{"node", "pod", "uid", "namespace", "name", "persistentvolumeclaim", "pvc_namespace"}),
 		podVolumeStorageUsedBytes: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Namespace: metricsNamespace,
 			Name:      "pod_volume_storage_used_bytes",
 			Help:      "Number of bytes of Volume storage that are consumed by the pod",
-		}, []string{"node", "pod", "uid", "namespace", "name", "pvc_name", "pvc_namespace"}),
+		}, []string{"node", "pod", "uid", "namespace", "name", "persistentvolumeclaim", "pvc_namespace"}),
 		podVolumeStorageInodesFree: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Namespace: metricsNamespace,
 			Name:      "pod_volume_storage_inodes_free",
 			Help:      "Number of available Inodes for pod Volume storage",
-		}, []string{"node", "pod", "uid", "namespace", "name", "pvc_name", "pvc_namespace"}),
+		}, []string{"node", "pod", "uid", "namespace", "name", "persistentvolumeclaim", "pvc_namespace"}),
 		podVolumeStorageInodes: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Namespace: metricsNamespace,
 			Name:      "pod_volume_storage_inodes",
 			Help:      "Number of Inodes for pod Volume storage",
-		}, []string{"node", "pod", "uid", "namespace", "name", "pvc_name", "pvc_namespace"}),
+		}, []string{"node", "pod", "uid", "namespace", "name", "persistentvolumeclaim", "pvc_namespace"}),
 		podVolumeStorageInodesUsed: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Namespace: metricsNamespace,
 			Name:      "pod_volume_storage_inodes_used",
 			Help:      "Number of used Inodes for pod Volume storage",
-		}, []string{"node", "pod", "uid", "namespace", "name", "pvc_name", "pvc_namespace"}),
+		}, []string{"node", "pod", "uid", "namespace", "name", "persistentvolumeclaim", "pvc_namespace"}),
 		nodeRuntimeImageFSAvailableBytes: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Namespace: metricsNamespace,
 			Name:      "node_runtime_imagefs_available_bytes",
