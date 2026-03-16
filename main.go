@@ -47,13 +47,13 @@ type Collectors struct {
 	podEphemeralStorageUsedBytes      *prometheus.GaugeVec
 	podEphemeralStorageInodesFree     *prometheus.GaugeVec
 	podEphemeralStorageInodes         *prometheus.GaugeVec
-	podVolumeStorageInodesUsed        *prometheus.GaugeVec
+	podEphemeralStorageInodesUsed     *prometheus.GaugeVec
 	podVolumeStorageAvailableBytes    *prometheus.GaugeVec
 	podVolumeStorageCapacityBytes     *prometheus.GaugeVec
 	podVolumeStorageUsedBytes         *prometheus.GaugeVec
 	podVolumeStorageInodesFree        *prometheus.GaugeVec
 	podVolumeStorageInodes            *prometheus.GaugeVec
-	podEphemeralStorageInodesUsed     *prometheus.GaugeVec
+	podVolumeStorageInodesUsed        *prometheus.GaugeVec
 	nodeRuntimeImageFSAvailableBytes  *prometheus.GaugeVec
 	nodeRuntimeImageFSCapacityBytes   *prometheus.GaugeVec
 	nodeRuntimeImageFSUsedBytes       *prometheus.GaugeVec

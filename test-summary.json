@@ -106,6 +106,20 @@
                     "inodes": 25474432,
                     "inodesUsed": 2,
                     "name": "var-files"
+                },
+                {
+                    "time": "2022-11-30T14:12:48Z",
+                    "availableBytes": 5368709120,
+                    "capacityBytes": 10737418240,
+                    "usedBytes": 5368709120,
+                    "inodesFree": 655360,
+                    "inodes": 655360,
+                    "inodesUsed": 0,
+                    "name": "data",
+                    "pvcRef": {
+                        "name": "data-dev-server-0",
+                        "namespace": "mon"
+                    }
                 }
             ],
             "ephemeral-storage": {
