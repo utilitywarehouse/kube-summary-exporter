@@ -64,6 +64,12 @@ You can also visit http://localhost:9779/nodes to retrieve metrics for all nodes
 | kube_summary_pod_ephemeral_storage_inodes_free     | Number of available Inodes for pod Ephemeral storage                 | node, pod, uid, namespace       |
 | kube_summary_pod_ephemeral_storage_inodes_used     | Number of used Inodes for pod Ephemeral storage                      | node, pod, uid, namespace       |
 | kube_summary_pod_ephemeral_storage_used_bytes      | Number of bytes of Ephemeral storage that are consumed by the pod    | node, pod, uid, namespace       |
+| kube_summary_pod_volume_storage_available_bytes    | Number of bytes of Volume storage that aren't consumed by the pod    | node, pod, uid, namespace, name, persistentvolumeclaim, pvc_namespace |
+| kube_summary_pod_volume_storage_capacity_bytes     | Number of bytes of Volume storage that can be consumed by the pod    | node, pod, uid, namespace, name, persistentvolumeclaim, pvc_namespace |
+| kube_summary_pod_volume_storage_inodes             | Number of Inodes for pod Volume storage                              | node, pod, uid, namespace, name, persistentvolumeclaim, pvc_namespace |
+| kube_summary_pod_volume_storage_inodes_free        | Number of available Inodes for pod Volume storage                    | node, pod, uid, namespace, name, persistentvolumeclaim, pvc_namespace |
+| kube_summary_pod_volume_storage_inodes_used        | Number of used Inodes for pod Volume storage                         | node, pod, uid, namespace, name, persistentvolumeclaim, pvc_namespace |
+| kube_summary_pod_volume_storage_used_bytes         | Number of bytes of Volume storage that are consumed by the pod       | node, pod, uid, namespace, name, persistentvolumeclaim, pvc_namespace |
 
 ## Development
 
