@@ -66,6 +66,30 @@ kube_summary_pod_ephemeral_storage_inodes_used{namespace="mon",node="test.eu-wes
 # HELP kube_summary_pod_ephemeral_storage_used_bytes Number of bytes of Ephemeral storage that are consumed by the pod
 # TYPE kube_summary_pod_ephemeral_storage_used_bytes gauge
 kube_summary_pod_ephemeral_storage_used_bytes{namespace="mon",node="test.eu-west-1.compute.internal",pod="dev-server-0",uid="93b0b04d-1ebe-4ad0-ada0-c29172c1ab9c"} 1.33947392e+08
+# HELP kube_summary_pod_volume_storage_available_bytes Number of bytes of Volume storage that aren't consumed by the pod
+# TYPE kube_summary_pod_volume_storage_available_bytes gauge
+kube_summary_pod_volume_storage_available_bytes{name="plugins",namespace="mon",node="test.eu-west-1.compute.internal",persistentvolumeclaim="",pod="dev-server-0",pvc_namespace="",uid="93b0b04d-1ebe-4ad0-ada0-c29172c1ab9c"} 9.0016899072e+10
+kube_summary_pod_volume_storage_available_bytes{name="var-files",namespace="mon",node="test.eu-west-1.compute.internal",persistentvolumeclaim="",pod="dev-server-0",pvc_namespace="",uid="93b0b04d-1ebe-4ad0-ada0-c29172c1ab9c"} 9.0016899072e+10
+# HELP kube_summary_pod_volume_storage_capacity_bytes Number of bytes of Volume storage that can be consumed by the pod
+# TYPE kube_summary_pod_volume_storage_capacity_bytes gauge
+kube_summary_pod_volume_storage_capacity_bytes{name="plugins",namespace="mon",node="test.eu-west-1.compute.internal",persistentvolumeclaim="",pod="dev-server-0",pvc_namespace="",uid="93b0b04d-1ebe-4ad0-ada0-c29172c1ab9c"} 1.01535985664e+11
+kube_summary_pod_volume_storage_capacity_bytes{name="var-files",namespace="mon",node="test.eu-west-1.compute.internal",persistentvolumeclaim="",pod="dev-server-0",pvc_namespace="",uid="93b0b04d-1ebe-4ad0-ada0-c29172c1ab9c"} 1.01535985664e+11
+# HELP kube_summary_pod_volume_storage_inodes Number of Inodes for pod Volume storage
+# TYPE kube_summary_pod_volume_storage_inodes gauge
+kube_summary_pod_volume_storage_inodes{name="plugins",namespace="mon",node="test.eu-west-1.compute.internal",persistentvolumeclaim="",pod="dev-server-0",pvc_namespace="",uid="93b0b04d-1ebe-4ad0-ada0-c29172c1ab9c"} 2.5474432e+07
+kube_summary_pod_volume_storage_inodes{name="var-files",namespace="mon",node="test.eu-west-1.compute.internal",persistentvolumeclaim="",pod="dev-server-0",pvc_namespace="",uid="93b0b04d-1ebe-4ad0-ada0-c29172c1ab9c"} 2.5474432e+07
+# HELP kube_summary_pod_volume_storage_inodes_free Number of available Inodes for pod Volume storage
+# TYPE kube_summary_pod_volume_storage_inodes_free gauge
+kube_summary_pod_volume_storage_inodes_free{name="plugins",namespace="mon",node="test.eu-west-1.compute.internal",persistentvolumeclaim="",pod="dev-server-0",pvc_namespace="",uid="93b0b04d-1ebe-4ad0-ada0-c29172c1ab9c"} 2.5355211e+07
+kube_summary_pod_volume_storage_inodes_free{name="var-files",namespace="mon",node="test.eu-west-1.compute.internal",persistentvolumeclaim="",pod="dev-server-0",pvc_namespace="",uid="93b0b04d-1ebe-4ad0-ada0-c29172c1ab9c"} 2.5355211e+07
+# HELP kube_summary_pod_volume_storage_inodes_used Number of used Inodes for pod Volume storage
+# TYPE kube_summary_pod_volume_storage_inodes_used gauge
+kube_summary_pod_volume_storage_inodes_used{name="plugins",namespace="mon",node="test.eu-west-1.compute.internal",persistentvolumeclaim="",pod="dev-server-0",pvc_namespace="",uid="93b0b04d-1ebe-4ad0-ada0-c29172c1ab9c"} 2
+kube_summary_pod_volume_storage_inodes_used{name="var-files",namespace="mon",node="test.eu-west-1.compute.internal",persistentvolumeclaim="",pod="dev-server-0",pvc_namespace="",uid="93b0b04d-1ebe-4ad0-ada0-c29172c1ab9c"} 2
+# HELP kube_summary_pod_volume_storage_used_bytes Number of bytes of Volume storage that are consumed by the pod
+# TYPE kube_summary_pod_volume_storage_used_bytes gauge
+kube_summary_pod_volume_storage_used_bytes{name="plugins",namespace="mon",node="test.eu-west-1.compute.internal",persistentvolumeclaim="",pod="dev-server-0",pvc_namespace="",uid="93b0b04d-1ebe-4ad0-ada0-c29172c1ab9c"} 12288
+kube_summary_pod_volume_storage_used_bytes{name="var-files",namespace="mon",node="test.eu-west-1.compute.internal",persistentvolumeclaim="",pod="dev-server-0",pvc_namespace="",uid="93b0b04d-1ebe-4ad0-ada0-c29172c1ab9c"} 1.33500928e+08
 `
 
 	d, err := os.ReadFile("test-summary.json")

@@ -47,6 +47,12 @@ type Collectors struct {
 	podEphemeralStorageUsedBytes      *prometheus.GaugeVec
 	podEphemeralStorageInodesFree     *prometheus.GaugeVec
 	podEphemeralStorageInodes         *prometheus.GaugeVec
+	podVolumeStorageInodesUsed        *prometheus.GaugeVec
+	podVolumeStorageAvailableBytes    *prometheus.GaugeVec
+	podVolumeStorageCapacityBytes     *prometheus.GaugeVec
+	podVolumeStorageUsedBytes         *prometheus.GaugeVec
+	podVolumeStorageInodesFree        *prometheus.GaugeVec
+	podVolumeStorageInodes            *prometheus.GaugeVec
 	podEphemeralStorageInodesUsed     *prometheus.GaugeVec
 	nodeRuntimeImageFSAvailableBytes  *prometheus.GaugeVec
 	nodeRuntimeImageFSCapacityBytes   *prometheus.GaugeVec
@@ -148,6 +154,36 @@ func newCollectors() *Collectors {
 			Name:      "pod_ephemeral_storage_inodes_used",
 			Help:      "Number of used Inodes for pod Ephemeral storage",
 		}, []string{"node", "pod", "uid", "namespace"}),
+		podVolumeStorageAvailableBytes: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: metricsNamespace,
+			Name:      "pod_volume_storage_available_bytes",
+			Help:      "Number of bytes of Volume storage that aren't consumed by the pod",
+		}, []string{"node", "pod", "uid", "namespace", "name", "persistentvolumeclaim", "pvc_namespace"}),
+		podVolumeStorageCapacityBytes: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: metricsNamespace,
+			Name:      "pod_volume_storage_capacity_bytes",
+			Help:      "Number of bytes of Volume storage that can be consumed by the pod",
+		}, []string{"node", "pod", "uid", "namespace", "name", "persistentvolumeclaim", "pvc_namespace"}),
+		podVolumeStorageUsedBytes: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: metricsNamespace,
+			Name:      "pod_volume_storage_used_bytes",
+			Help:      "Number of bytes of Volume storage that are consumed by the pod",
+		}, []string{"node", "pod", "uid", "namespace", "name", "persistentvolumeclaim", "pvc_namespace"}),
+		podVolumeStorageInodesFree: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: metricsNamespace,
+			Name:      "pod_volume_storage_inodes_free",
+			Help:      "Number of available Inodes for pod Volume storage",
+		}, []string{"node", "pod", "uid", "namespace", "name", "persistentvolumeclaim", "pvc_namespace"}),
+		podVolumeStorageInodes: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: metricsNamespace,
+			Name:      "pod_volume_storage_inodes",
+			Help:      "Number of Inodes for pod Volume storage",
+		}, []string{"node", "pod", "uid", "namespace", "name", "persistentvolumeclaim", "pvc_namespace"}),
+		podVolumeStorageInodesUsed: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: metricsNamespace,
+			Name:      "pod_volume_storage_inodes_used",
+			Help:      "Number of used Inodes for pod Volume storage",
+		}, []string{"node", "pod", "uid", "namespace", "name", "persistentvolumeclaim", "pvc_namespace"}),
 		nodeRuntimeImageFSAvailableBytes: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Namespace: metricsNamespace,
 			Name:      "node_runtime_imagefs_available_bytes",
@@ -201,6 +237,12 @@ func (c *Collectors) register(registry *prometheus.Registry) {
 		c.podEphemeralStorageInodesFree,
 		c.podEphemeralStorageInodes,
 		c.podEphemeralStorageInodesUsed,
+		c.podVolumeStorageAvailableBytes,
+		c.podVolumeStorageCapacityBytes,
+		c.podVolumeStorageUsedBytes,
+		c.podVolumeStorageInodesFree,
+		c.podVolumeStorageInodes,
+		c.podVolumeStorageInodesUsed,
 		c.nodeRuntimeImageFSAvailableBytes,
 		c.nodeRuntimeImageFSCapacityBytes,
 		c.nodeRuntimeImageFSUsedBytes,
@@ -276,6 +318,34 @@ func collectSummaryMetrics(summary *stats.Summary, collectors *Collectors) {
 			}
 			if ephemeralStorage.InodesUsed != nil {
 				collectors.podEphemeralStorageInodesUsed.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace).Set(float64(*ephemeralStorage.InodesUsed))
+			}
+		}
+		if volumeStats := pod.VolumeStats; volumeStats != nil {
+			for _, volumeStorage := range volumeStats {
+				pvcName := ""
+				pvcNamespace := ""
+				if volumeStorage.PVCRef != nil {
+					pvcName = volumeStorage.PVCRef.Name
+					pvcNamespace = volumeStorage.PVCRef.Namespace
+				}
+				if volumeStorage.AvailableBytes != nil {
+					collectors.podVolumeStorageAvailableBytes.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace, volumeStorage.Name, pvcName, pvcNamespace).Set(float64(*volumeStorage.AvailableBytes))
+				}
+				if volumeStorage.CapacityBytes != nil {
+					collectors.podVolumeStorageCapacityBytes.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace, volumeStorage.Name, pvcName, pvcNamespace).Set(float64(*volumeStorage.CapacityBytes))
+				}
+				if volumeStorage.UsedBytes != nil {
+					collectors.podVolumeStorageUsedBytes.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace, volumeStorage.Name, pvcName, pvcNamespace).Set(float64(*volumeStorage.UsedBytes))
+				}
+				if volumeStorage.InodesFree != nil {
+					collectors.podVolumeStorageInodesFree.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace, volumeStorage.Name, pvcName, pvcNamespace).Set(float64(*volumeStorage.InodesFree))
+				}
+				if volumeStorage.Inodes != nil {
+					collectors.podVolumeStorageInodes.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace, volumeStorage.Name, pvcName, pvcNamespace).Set(float64(*volumeStorage.Inodes))
+				}
+				if volumeStorage.InodesUsed != nil {
+					collectors.podVolumeStorageInodesUsed.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace, volumeStorage.Name, pvcName, pvcNamespace).Set(float64(*volumeStorage.InodesUsed))
+				}
 			}
 		}
 	}
