@@ -8,8 +8,10 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"strconv"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -456,7 +458,6 @@ func allNodesHandler(w http.ResponseWriter, r *http.Request, kubeClient *kuberne
 		go func(n string) {
 			defer wg.Done()
 
-			// Each nodeSummary call gets the shared context (with timeout)
 			start := time.Now()
 			summary, err := nodeSummary(ctx, kubeClient, n)
 			results <- result{
@@ -576,6 +577,31 @@ func main() {
 </html>`))
 	})
 
-	fmt.Printf("Listening on %s\n", *flagListenAddress)
-	fmt.Printf("error: %v\n", http.ListenAndServe(*flagListenAddress, r))
+	srv := &http.Server{
+		Addr:         *flagListenAddress,
+		Handler:      r,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 2 * time.Minute,
+		IdleTimeout:  60 * time.Second,
+	}
+
+	// Graceful shutdown on SIGINT/SIGTERM so in-flight scrapes finish and
+	// Prometheus sees a clean up=0 instead of a mid-scrape termination.
+	go func() {
+		sigCh := make(chan os.Signal, 1)
+		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+		sig := <-sigCh
+		errorLog.Printf("Received %s, shutting down...", sig)
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := srv.Shutdown(shutdownCtx); err != nil {
+			errorLog.Printf("Shutdown error: %v", err)
+		}
+	}()
+
+	errorLog.Printf("Listening on %s", *flagListenAddress)
+	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		errorLog.Printf("error: %v", err)
+		os.Exit(1)
+	}
 }
