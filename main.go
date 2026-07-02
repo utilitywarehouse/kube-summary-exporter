@@ -606,6 +606,10 @@ func main() {
 
 	// Graceful shutdown on SIGINT/SIGTERM so in-flight scrapes finish and
 	// Prometheus sees a clean up=0 instead of a mid-scrape termination.
+	// idleClosed is closed once Shutdown has finished draining; main waits on
+	// it after ListenAndServe unblocks so the process does not exit while
+	// connections are still being drained.
+	idleClosed := make(chan struct{})
 	go func() {
 		sigCh := make(chan os.Signal, 1)
 		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
@@ -616,6 +620,7 @@ func main() {
 		if err := srv.Shutdown(shutdownCtx); err != nil {
 			errorLog.Printf("Shutdown error: %v", err)
 		}
+		close(idleClosed)
 	}()
 
 	errorLog.Printf("Listening on %s", *flagListenAddress)
@@ -623,4 +628,5 @@ func main() {
 		errorLog.Printf("error: %v", err)
 		os.Exit(1)
 	}
+	<-idleClosed
 }
