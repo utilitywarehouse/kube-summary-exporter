@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -27,7 +28,42 @@ var (
 	flagKubeConfigPath = flag.String("kubeconfig", "", "Path of a kubeconfig file, if not provided the app will try $KUBECONFIG, $HOME/.kube/config or in cluster config")
 	flagListenAddress  = flag.String("listen-address", ":9779", "Listen address")
 	metricsNamespace   = "kube_summary"
+
+	// errorLog is used for promhttp.HandlerOpts.ErrorLog so registry
+	// exposition errors are observable instead of silently dropped.
+	errorLog = log.New(os.Stderr, "", log.LstdFlags)
+
+	// scrapeErrorsTotal counts per-node /stats/summary scrape failures. It is
+	// registered on the default registry so it is exposed on /metrics and
+	// operators can alert on partial scrapes instead of them being silently
+	// dropped.
+	scrapeErrorsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: metricsNamespace,
+		Subsystem: "exporter",
+		Name:      "scrape_errors_total",
+		Help:      "Total number of errors scraping a node's /stats/summary",
+	}, []string{"node"})
+
+	// lastScrapeDurationSeconds records the duration of the most recent
+	// /stats/summary scrape per node, in seconds.
+	lastScrapeDurationSeconds = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: metricsNamespace,
+		Subsystem: "exporter",
+		Name:      "last_scrape_duration_seconds",
+		Help:      "Duration of the last scrape of a node's /stats/summary in seconds",
+	}, []string{"node"})
 )
+
+func init() {
+	prometheus.MustRegister(scrapeErrorsTotal, lastScrapeDurationSeconds)
+}
+
+// handlerOpts configures promhttp to keep emitting remaining metrics even when
+// a single metric errors, and to surface exposition errors via errorLog.
+var handlerOpts = promhttp.HandlerOpts{
+	ErrorHandling: promhttp.ContinueOnError,
+	ErrorLog:      errorLog,
+}
 
 type Collectors struct {
 	containerLogsInodesFree           *prometheus.GaugeVec
@@ -369,8 +405,11 @@ func nodeHandler(w http.ResponseWriter, r *http.Request, kubeClient *kubernetes.
 	ctx, cancel := timeoutContext(r)
 	defer cancel()
 
+	start := time.Now()
 	summary, err := nodeSummary(ctx, kubeClient, node)
+	lastScrapeDurationSeconds.WithLabelValues(node).Set(time.Since(start).Seconds())
 	if err != nil {
+		scrapeErrorsTotal.WithLabelValues(node).Inc()
 		http.Error(w, fmt.Sprintf("Error querying /stats/summary for %s: %v", node, err), http.StatusInternalServerError)
 		return
 	}
@@ -380,7 +419,7 @@ func nodeHandler(w http.ResponseWriter, r *http.Request, kubeClient *kubernetes.
 	collectors.register(registry)
 	collectSummaryMetrics(summary, collectors)
 
-	h := promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
+	h := promhttp.HandlerFor(registry, handlerOpts)
 	h.ServeHTTP(w, r)
 }
 
@@ -400,9 +439,10 @@ func allNodesHandler(w http.ResponseWriter, r *http.Request, kubeClient *kuberne
 	collectors.register(registry)
 
 	type result struct {
-		summary *stats.Summary
-		node    string
-		err     error
+		summary  *stats.Summary
+		node     string
+		err      error
+		duration time.Duration
 	}
 
 	results := make(chan result, len(nodes.Items))
@@ -415,11 +455,13 @@ func allNodesHandler(w http.ResponseWriter, r *http.Request, kubeClient *kuberne
 			defer wg.Done()
 
 			// Each nodeSummary call gets the shared context (with timeout)
+			start := time.Now()
 			summary, err := nodeSummary(ctx, kubeClient, n)
 			results <- result{
-				summary: summary,
-				node:    n,
-				err:     err,
+				summary:  summary,
+				node:     n,
+				err:      err,
+				duration: time.Since(start),
 			}
 		}(node.Name)
 	}
@@ -432,16 +474,18 @@ func allNodesHandler(w http.ResponseWriter, r *http.Request, kubeClient *kuberne
 
 	// Consume results
 	for res := range results {
+		lastScrapeDurationSeconds.WithLabelValues(res.node).Set(res.duration.Seconds())
 		if res.err != nil {
-			// Log error but DO NOT fail the whole scrape
-			fmt.Printf("Error scraping %s: %v\n", res.node, res.err)
+			// Record the failure and DO NOT fail the whole scrape
+			scrapeErrorsTotal.WithLabelValues(res.node).Inc()
+			errorLog.Printf("Error scraping %s: %v", res.node, res.err)
 			continue
 		}
 		collectSummaryMetrics(res.summary, collectors)
 	}
 
 	// Return all aggregated metrics
-	h := promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
+	h := promhttp.HandlerFor(registry, handlerOpts)
 	h.ServeHTTP(w, r)
 }
 
@@ -504,7 +548,7 @@ func main() {
 
 	kubeClient, err := newKubeClient(*flagKubeConfigPath)
 	if err != nil {
-		fmt.Printf("[Error] Cannot create kube client: %v", err)
+		errorLog.Printf("[Error] Cannot create kube client: %v", err)
 		os.Exit(1)
 	}
 

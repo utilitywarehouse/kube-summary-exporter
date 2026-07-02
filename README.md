@@ -71,6 +71,13 @@ You can also visit http://localhost:9779/nodes to retrieve metrics for all nodes
 | kube_summary_pod_volume_storage_inodes_used        | Number of used Inodes for pod Volume storage                         | node, pod, uid, namespace, name, persistentvolumeclaim, pvc_namespace |
 | kube_summary_pod_volume_storage_used_bytes         | Number of bytes of Volume storage that are consumed by the pod       | node, pod, uid, namespace, name, persistentvolumeclaim, pvc_namespace |
 
+### Exporter metrics
+
+| Metric                                              | Description                                                  | Labels |
+| --------------------------------------------------- | ------------------------------------------------------------ | ------ |
+| kube_summary_exporter_scrape_errors_total           | Total number of errors scraping a node's /stats/summary      | node   |
+| kube_summary_exporter_last_scrape_duration_seconds  | Duration of the last scrape of a node's /stats/summary in seconds | node   |
+
 ## Development
 
 ### Running Tests
