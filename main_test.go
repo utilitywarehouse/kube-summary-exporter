@@ -10,7 +10,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	stats "k8s.io/kubelet/pkg/apis/stats/v1alpha1"
 )
 
