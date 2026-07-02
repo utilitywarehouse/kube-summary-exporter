@@ -24,6 +24,8 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )
 
+const defaultScrapeTimeout = 60 * time.Second
+
 var (
 	flagKubeConfigPath = flag.String("kubeconfig", "", "Path of a kubeconfig file, if not provided the app will try $KUBECONFIG, $HOME/.kube/config or in cluster config")
 	flagListenAddress  = flag.String("listen-address", ":9779", "Listen address")
@@ -494,26 +496,28 @@ func nodeSummary(ctx context.Context, kubeClient *kubernetes.Clientset, nodeName
 	req := kubeClient.CoreV1().RESTClient().Get().Resource("nodes").Name(nodeName).SubResource("proxy").Suffix("stats/summary")
 	resp, err := req.DoRaw(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("error querying /stats/summary for %s: %v", nodeName, err)
+		return nil, fmt.Errorf("error querying /stats/summary for %s: %w", nodeName, err)
 	}
 
 	summary := &stats.Summary{}
 	if err := json.Unmarshal(resp, summary); err != nil {
-		return nil, fmt.Errorf("error unmarshaling /stats/summary response for %s: %v", nodeName, err)
+		return nil, fmt.Errorf("error unmarshaling /stats/summary response for %s: %w", nodeName, err)
 	}
 
 	return summary, nil
 }
 
-// timeoutContext returns a context with timeout based on the X-Prometheus-Scrape-Timeout-Seconds header
+// timeoutContext returns a context with a scrape timeout. The timeout is taken
+// from the X-Prometheus-Scrape-Timeout-Seconds header when present, otherwise
+// defaultScrapeTimeout is applied so a hung kubelet proxy cannot block the
+// scrape indefinitely.
 func timeoutContext(r *http.Request) (context.Context, context.CancelFunc) {
 	if v := r.Header.Get("X-Prometheus-Scrape-Timeout-Seconds"); v != "" {
-		timeoutSeconds, err := strconv.ParseFloat(v, 64)
-		if err == nil {
+		if timeoutSeconds, err := strconv.ParseFloat(v, 64); err == nil {
 			return context.WithTimeout(r.Context(), time.Duration(timeoutSeconds*float64(time.Second)))
 		}
 	}
-	return context.WithCancel(r.Context())
+	return context.WithTimeout(r.Context(), defaultScrapeTimeout)
 }
 
 // newKubeClient returns a Kubernetes client (clientset) with configurable
