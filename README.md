@@ -81,4 +81,11 @@ To run the tests, use the following command:
 go test ./...
 ```
 
-The main test file (`main_test.go`) includes a test for the `collectSummaryMetrics` function, which verifies that the metrics are collected correctly from a sample JSON file (`test-summary.json`).
+The main test file (`main_test.go`) includes a test for the
+`collectSummaryMetrics` function. The test builds a `stats.Summary` fixture
+programmatically, registers all collectors, and asserts representative series
+per metric category are emitted with the expected values and labels. The fixture
+reuses a pod uid across two nodes to verify series are keyed per node, and an
+all-nil FsStats pod to verify the per-field nil guards emit nothing. A second
+test drives `collectSummaryMetrics` concurrently to guard the shared-Collectors
+write path (`go test -race`).
