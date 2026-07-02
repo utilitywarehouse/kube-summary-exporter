@@ -73,9 +73,13 @@ You can also visit http://localhost:9779/nodes to retrieve metrics for all nodes
 
 ### Exporter metrics
 
+These per-scrape operational metrics are emitted alongside the node metrics on
+the `/node/{node}` and `/nodes` endpoints (not on `/metrics`), so they share the
+scrape that produced them.
+
 | Metric                                              | Description                                                  | Labels |
 | --------------------------------------------------- | ------------------------------------------------------------ | ------ |
-| kube_summary_exporter_scrape_errors_total           | Total number of errors scraping a node's /stats/summary      | node   |
+| kube_summary_exporter_scrape_success                | Whether the last scrape of a node's /stats/summary succeeded (1) or failed (0) | node   |
 | kube_summary_exporter_last_scrape_duration_seconds  | Duration of the last scrape of a node's /stats/summary in seconds | node   |
 
 ## Development

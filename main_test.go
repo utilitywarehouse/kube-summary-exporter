@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
@@ -323,5 +324,37 @@ func Test_collectSummaryMetrics_Concurrent(t *testing.T) {
 	// here (the -race detector failing the build is the point).
 	if _, err := reg.Gather(); err != nil {
 		t.Fatalf("Gather after concurrent collect: %v", err)
+	}
+}
+
+// Test_scrapeMetrics verifies observe sets scrape_success to 1 on success and 0
+// on error, and records the duration, all on the request-scoped registry. This
+// is the per-node observability signal Prometheus reads from /node/{node} and
+// /nodes, so a regression here silently blinds partial-scrape alerting.
+func Test_scrapeMetrics(t *testing.T) {
+	reg := prometheus.NewRegistry()
+	scrape := newScrapeMetrics(reg)
+
+	scrape.observe("node-ok", 2*time.Second, nil)
+	scrape.observe("node-bad", 3*time.Second, fmt.Errorf("boom"))
+
+	got := gatherValues(t, reg)
+
+	success := got["kube_summary_exporter_scrape_success"]
+	if v, ok := success[key(pair{"node", "node-ok"})]; !ok || v != 1 {
+		t.Errorf("scrape_success{node=node-ok} = %v (present=%v), want 1", v, ok)
+	}
+	if v, ok := success[key(pair{"node", "node-bad"})]; !ok || v != 0 {
+		t.Errorf("scrape_success{node=node-bad} = %v (present=%v), want 0", v, ok)
+	}
+
+	duration := got["kube_summary_exporter_last_scrape_duration_seconds"]
+	if v, ok := duration[key(pair{"node", "node-ok"})]; !ok || v != 2 {
+		t.Errorf("last_scrape_duration_seconds{node=node-ok} = %v (present=%v), want 2", v, ok)
+	}
+	// A failed scrape still records its duration so slow-then-failing nodes
+	// are distinguishable from fast failures.
+	if v, ok := duration[key(pair{"node", "node-bad"})]; !ok || v != 3 {
+		t.Errorf("last_scrape_duration_seconds{node=node-bad} = %v (present=%v), want 3", v, ok)
 	}
 }

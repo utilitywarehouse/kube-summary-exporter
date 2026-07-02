@@ -36,30 +36,46 @@ var (
 	// errorLog is used for promhttp.HandlerOpts.ErrorLog so registry
 	// exposition errors are observable instead of silently dropped.
 	errorLog = log.New(os.Stderr, "", log.LstdFlags)
-
-	// scrapeErrorsTotal counts per-node /stats/summary scrape failures. It is
-	// registered on the default registry so it is exposed on /metrics and
-	// operators can alert on partial scrapes instead of them being silently
-	// dropped.
-	scrapeErrorsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Namespace: metricsNamespace,
-		Subsystem: "exporter",
-		Name:      "scrape_errors_total",
-		Help:      "Total number of errors scraping a node's /stats/summary",
-	}, []string{"node"})
-
-	// lastScrapeDurationSeconds records the duration of the most recent
-	// /stats/summary scrape per node, in seconds.
-	lastScrapeDurationSeconds = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Namespace: metricsNamespace,
-		Subsystem: "exporter",
-		Name:      "last_scrape_duration_seconds",
-		Help:      "Duration of the last scrape of a node's /stats/summary in seconds",
-	}, []string{"node"})
 )
 
-func init() {
-	prometheus.MustRegister(scrapeErrorsTotal, lastScrapeDurationSeconds)
+// scrapeMetrics are per-request operational gauges exposed alongside a node's
+// summary metrics. They are registered on the request-scoped registry rather
+// than a global one so that they are actually scraped via /node/{node} and
+// /nodes (the endpoints Prometheus hits), and so a caller-supplied node name
+// on /node/{node} cannot accumulate unbounded series across requests.
+type scrapeMetrics struct {
+	success  *prometheus.GaugeVec
+	duration *prometheus.GaugeVec
+}
+
+// newScrapeMetrics builds the scrape gauges and registers them on registry.
+func newScrapeMetrics(registry *prometheus.Registry) scrapeMetrics {
+	m := scrapeMetrics{
+		success: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: metricsNamespace,
+			Subsystem: "exporter",
+			Name:      "scrape_success",
+			Help:      "Whether the last scrape of a node's /stats/summary succeeded (1) or failed (0)",
+		}, []string{"node"}),
+		duration: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: metricsNamespace,
+			Subsystem: "exporter",
+			Name:      "last_scrape_duration_seconds",
+			Help:      "Duration of the last scrape of a node's /stats/summary in seconds",
+		}, []string{"node"}),
+	}
+	registry.MustRegister(m.success, m.duration)
+	return m
+}
+
+// observe records the outcome and duration of a single node scrape.
+func (m scrapeMetrics) observe(node string, d time.Duration, err error) {
+	m.duration.WithLabelValues(node).Set(d.Seconds())
+	success := 1.0
+	if err != nil {
+		success = 0
+	}
+	m.success.WithLabelValues(node).Set(success)
 }
 
 // handlerOpts configures promhttp to keep emitting remaining metrics even when
@@ -409,19 +425,22 @@ func nodeHandler(w http.ResponseWriter, r *http.Request, kubeClient *kubernetes.
 	ctx, cancel := timeoutContext(r)
 	defer cancel()
 
-	start := time.Now()
-	summary, err := nodeSummary(ctx, kubeClient, node)
-	lastScrapeDurationSeconds.WithLabelValues(node).Set(time.Since(start).Seconds())
-	if err != nil {
-		scrapeErrorsTotal.WithLabelValues(node).Inc()
-		http.Error(w, fmt.Sprintf("Error querying /stats/summary for %s: %v", node, err), http.StatusInternalServerError)
-		return
-	}
-
 	collectors := newCollectors()
 	registry := prometheus.NewRegistry()
 	collectors.register(registry)
-	collectSummaryMetrics(summary, collectors)
+	scrape := newScrapeMetrics(registry)
+
+	start := time.Now()
+	summary, err := nodeSummary(ctx, kubeClient, node)
+	scrape.observe(node, time.Since(start), err)
+	if err != nil {
+		// Serve the registry with scrape_success=0 rather than failing the
+		// HTTP request, so the failure signal reaches Prometheus (a 500 would
+		// drop every metric, including scrape_success).
+		errorLog.Printf("Error scraping %s: %v", node, err)
+	} else {
+		collectSummaryMetrics(summary, collectors)
+	}
 
 	h := promhttp.HandlerFor(registry, handlerOpts)
 	h.ServeHTTP(w, r)
@@ -441,6 +460,7 @@ func allNodesHandler(w http.ResponseWriter, r *http.Request, kubeClient *kuberne
 	collectors := newCollectors()
 	registry := prometheus.NewRegistry()
 	collectors.register(registry)
+	scrape := newScrapeMetrics(registry)
 
 	type result struct {
 		summary  *stats.Summary
@@ -477,10 +497,9 @@ func allNodesHandler(w http.ResponseWriter, r *http.Request, kubeClient *kuberne
 
 	// Consume results
 	for res := range results {
-		lastScrapeDurationSeconds.WithLabelValues(res.node).Set(res.duration.Seconds())
+		scrape.observe(res.node, res.duration, res.err)
 		if res.err != nil {
 			// Record the failure and DO NOT fail the whole scrape
-			scrapeErrorsTotal.WithLabelValues(res.node).Inc()
 			errorLog.Printf("Error scraping %s: %v", res.node, res.err)
 			continue
 		}
