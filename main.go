@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -33,10 +33,18 @@ var (
 	flagListenAddress  = flag.String("listen-address", ":9779", "Listen address")
 	metricsNamespace   = "kube_summary"
 
-	// errorLog is used for promhttp.HandlerOpts.ErrorLog so registry
-	// exposition errors are observable instead of silently dropped.
-	errorLog = log.New(os.Stderr, "", log.LstdFlags)
+	logHandler = slog.NewTextHandler(os.Stderr, nil)
+
+	// errorLog bridges slog to *log.Logger for
+	// promhttp.HandlerOpts.ErrorLog, which is typed *log.Logger.
+	// Exposition errors flow through the same handler as the rest of
+	// the exporter's logs.
+	errorLog = slog.NewLogLogger(logHandler, slog.LevelError)
 )
+
+func init() {
+	slog.SetDefault(slog.New(logHandler))
+}
 
 // scrapeMetrics are per-request operational gauges exposed alongside a node's
 // summary metrics. They are registered on the request-scoped registry rather
@@ -437,7 +445,7 @@ func nodeHandler(w http.ResponseWriter, r *http.Request, kubeClient *kubernetes.
 		// Serve the registry with scrape_success=0 rather than failing the
 		// HTTP request, so the failure signal reaches Prometheus (a 500 would
 		// drop every metric, including scrape_success).
-		errorLog.Printf("Error scraping %s: %v", node, err)
+		slog.Error("scrape node", "node", node, "err", err)
 	} else {
 		collectSummaryMetrics(summary, collectors)
 	}
@@ -500,7 +508,7 @@ func allNodesHandler(w http.ResponseWriter, r *http.Request, kubeClient *kuberne
 		scrape.observe(res.node, res.duration, res.err)
 		if res.err != nil {
 			// Record the failure and DO NOT fail the whole scrape
-			errorLog.Printf("Error scraping %s: %v", res.node, res.err)
+			slog.Error("scrape node", "node", res.node, "err", res.err)
 			continue
 		}
 		collectSummaryMetrics(res.summary, collectors)
@@ -572,7 +580,7 @@ func main() {
 
 	kubeClient, err := newKubeClient(*flagKubeConfigPath)
 	if err != nil {
-		errorLog.Printf("[Error] Cannot create kube client: %v", err)
+		slog.Error("create kube client", "err", err)
 		os.Exit(1)
 	}
 
@@ -614,18 +622,18 @@ func main() {
 		sigCh := make(chan os.Signal, 1)
 		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 		sig := <-sigCh
-		errorLog.Printf("Received %s, shutting down...", sig)
+		slog.Info("received signal, shutting down", "signal", sig)
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		if err := srv.Shutdown(shutdownCtx); err != nil {
-			errorLog.Printf("Shutdown error: %v", err)
+			slog.Error("shutdown", "err", err)
 		}
 		close(idleClosed)
 	}()
 
-	errorLog.Printf("Listening on %s", *flagListenAddress)
+	slog.Info("listening", "address", *flagListenAddress)
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		errorLog.Printf("error: %v", err)
+		slog.Error("serve", "err", err)
 		os.Exit(1)
 	}
 	<-idleClosed
