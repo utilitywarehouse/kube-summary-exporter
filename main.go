@@ -252,123 +252,113 @@ func (c *Collectors) register(registry *prometheus.Registry) {
 	)
 }
 
+// fsCollectors groups the six GaugeVecs that mirror the fields of a
+// stats.FsStats, in the order availableBytes, capacityBytes, usedBytes,
+// inodesFree, inodes, inodesUsed.
+type fsCollectors struct {
+	availableBytes *prometheus.GaugeVec
+	capacityBytes  *prometheus.GaugeVec
+	usedBytes      *prometheus.GaugeVec
+	inodesFree     *prometheus.GaugeVec
+	inodes         *prometheus.GaugeVec
+	inodesUsed     *prometheus.GaugeVec
+}
+
+// collectFsStats sets all six collectors from a single FsStats using the same
+// label values for every series. Nil fields are skipped.
+func collectFsStats(fs *stats.FsStats, c fsCollectors, labels []string) {
+	setGauge(c.availableBytes, labels, fs.AvailableBytes)
+	setGauge(c.capacityBytes, labels, fs.CapacityBytes)
+	setGauge(c.usedBytes, labels, fs.UsedBytes)
+	setGauge(c.inodesFree, labels, fs.InodesFree)
+	setGauge(c.inodes, labels, fs.Inodes)
+	setGauge(c.inodesUsed, labels, fs.InodesUsed)
+}
+
+// setGauge sets vec for the given labels to v if v is non-nil.
+func setGauge(vec *prometheus.GaugeVec, labels []string, v *uint64) {
+	if v != nil {
+		vec.WithLabelValues(labels...).Set(float64(*v))
+	}
+}
+
 // collectSummaryMetrics collects metrics from a /stats/summary response
 func collectSummaryMetrics(summary *stats.Summary, collectors *Collectors) {
 	nodeName := summary.Node.NodeName
 
+	logsCs := fsCollectors{
+		availableBytes: collectors.containerLogsAvailableBytes,
+		capacityBytes:  collectors.containerLogsCapacityBytes,
+		usedBytes:      collectors.containerLogsUsedBytes,
+		inodesFree:     collectors.containerLogsInodesFree,
+		inodes:         collectors.containerLogsInodes,
+		inodesUsed:     collectors.containerLogsInodesUsed,
+	}
+	rootfsCs := fsCollectors{
+		availableBytes: collectors.containerRootFsAvailableBytes,
+		capacityBytes:  collectors.containerRootFsCapacityBytes,
+		usedBytes:      collectors.containerRootFsUsedBytes,
+		inodesFree:     collectors.containerRootFsInodesFree,
+		inodes:         collectors.containerRootFsInodes,
+		inodesUsed:     collectors.containerRootFsInodesUsed,
+	}
+	ephemeralCs := fsCollectors{
+		availableBytes: collectors.podEphemeralStorageAvailableBytes,
+		capacityBytes:  collectors.podEphemeralStorageCapacityBytes,
+		usedBytes:      collectors.podEphemeralStorageUsedBytes,
+		inodesFree:     collectors.podEphemeralStorageInodesFree,
+		inodes:         collectors.podEphemeralStorageInodes,
+		inodesUsed:     collectors.podEphemeralStorageInodesUsed,
+	}
+	volumeCs := fsCollectors{
+		availableBytes: collectors.podVolumeStorageAvailableBytes,
+		capacityBytes:  collectors.podVolumeStorageCapacityBytes,
+		usedBytes:      collectors.podVolumeStorageUsedBytes,
+		inodesFree:     collectors.podVolumeStorageInodesFree,
+		inodes:         collectors.podVolumeStorageInodes,
+		inodesUsed:     collectors.podVolumeStorageInodesUsed,
+	}
+	imageFsCs := fsCollectors{
+		availableBytes: collectors.nodeRuntimeImageFSAvailableBytes,
+		capacityBytes:  collectors.nodeRuntimeImageFSCapacityBytes,
+		usedBytes:      collectors.nodeRuntimeImageFSUsedBytes,
+		inodesFree:     collectors.nodeRuntimeImageFSInodesFree,
+		inodes:         collectors.nodeRuntimeImageFSInodes,
+		inodesUsed:     collectors.nodeRuntimeImageFSInodesUsed,
+	}
+
+	nodeLabels := []string{nodeName}
+
 	for _, pod := range summary.Pods {
+		podLabels := []string{nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace}
+
 		for _, container := range pod.Containers {
-			if logs := container.Logs; logs != nil {
-				if inodesFree := logs.InodesFree; inodesFree != nil {
-					collectors.containerLogsInodesFree.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace, container.Name).Set(float64(*inodesFree))
-				}
-				if inodes := logs.Inodes; inodes != nil {
-					collectors.containerLogsInodes.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace, container.Name).Set(float64(*inodes))
-				}
-				if inodesUsed := logs.InodesUsed; inodesUsed != nil {
-					collectors.containerLogsInodesUsed.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace, container.Name).Set(float64(*inodesUsed))
-				}
-				if availableBytes := logs.AvailableBytes; availableBytes != nil {
-					collectors.containerLogsAvailableBytes.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace, container.Name).Set(float64(*availableBytes))
-				}
-				if capacityBytes := logs.CapacityBytes; capacityBytes != nil {
-					collectors.containerLogsCapacityBytes.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace, container.Name).Set(float64(*capacityBytes))
-				}
-				if usedBytes := logs.UsedBytes; usedBytes != nil {
-					collectors.containerLogsUsedBytes.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace, container.Name).Set(float64(*usedBytes))
-				}
+			containerLabels := []string{nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace, container.Name}
+			if container.Logs != nil {
+				collectFsStats(container.Logs, logsCs, containerLabels)
 			}
-			if rootfs := container.Rootfs; rootfs != nil {
-				if inodesFree := rootfs.InodesFree; inodesFree != nil {
-					collectors.containerRootFsInodesFree.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace, container.Name).Set(float64(*inodesFree))
-				}
-				if inodes := rootfs.Inodes; inodes != nil {
-					collectors.containerRootFsInodes.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace, container.Name).Set(float64(*inodes))
-				}
-				if inodesUsed := rootfs.InodesUsed; inodesUsed != nil {
-					collectors.containerRootFsInodesUsed.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace, container.Name).Set(float64(*inodesUsed))
-				}
-				if availableBytes := rootfs.AvailableBytes; availableBytes != nil {
-					collectors.containerRootFsAvailableBytes.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace, container.Name).Set(float64(*availableBytes))
-				}
-				if capacityBytes := rootfs.CapacityBytes; capacityBytes != nil {
-					collectors.containerRootFsCapacityBytes.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace, container.Name).Set(float64(*capacityBytes))
-				}
-				if usedBytes := rootfs.UsedBytes; usedBytes != nil {
-					collectors.containerRootFsUsedBytes.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace, container.Name).Set(float64(*usedBytes))
-				}
+			if container.Rootfs != nil {
+				collectFsStats(container.Rootfs, rootfsCs, containerLabels)
 			}
 		}
 
-		if ephemeralStorage := pod.EphemeralStorage; ephemeralStorage != nil {
-			if ephemeralStorage.AvailableBytes != nil {
-				collectors.podEphemeralStorageAvailableBytes.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace).Set(float64(*ephemeralStorage.AvailableBytes))
-			}
-			if ephemeralStorage.CapacityBytes != nil {
-				collectors.podEphemeralStorageCapacityBytes.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace).Set(float64(*ephemeralStorage.CapacityBytes))
-			}
-			if ephemeralStorage.UsedBytes != nil {
-				collectors.podEphemeralStorageUsedBytes.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace).Set(float64(*ephemeralStorage.UsedBytes))
-			}
-			if ephemeralStorage.InodesFree != nil {
-				collectors.podEphemeralStorageInodesFree.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace).Set(float64(*ephemeralStorage.InodesFree))
-			}
-			if ephemeralStorage.Inodes != nil {
-				collectors.podEphemeralStorageInodes.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace).Set(float64(*ephemeralStorage.Inodes))
-			}
-			if ephemeralStorage.InodesUsed != nil {
-				collectors.podEphemeralStorageInodesUsed.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace).Set(float64(*ephemeralStorage.InodesUsed))
-			}
+		if pod.EphemeralStorage != nil {
+			collectFsStats(pod.EphemeralStorage, ephemeralCs, podLabels)
 		}
-		if volumeStats := pod.VolumeStats; volumeStats != nil {
-			for _, volumeStorage := range volumeStats {
-				pvcName := ""
-				pvcNamespace := ""
-				if volumeStorage.PVCRef != nil {
-					pvcName = volumeStorage.PVCRef.Name
-					pvcNamespace = volumeStorage.PVCRef.Namespace
-				}
-				if volumeStorage.AvailableBytes != nil {
-					collectors.podVolumeStorageAvailableBytes.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace, volumeStorage.Name, pvcName, pvcNamespace).Set(float64(*volumeStorage.AvailableBytes))
-				}
-				if volumeStorage.CapacityBytes != nil {
-					collectors.podVolumeStorageCapacityBytes.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace, volumeStorage.Name, pvcName, pvcNamespace).Set(float64(*volumeStorage.CapacityBytes))
-				}
-				if volumeStorage.UsedBytes != nil {
-					collectors.podVolumeStorageUsedBytes.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace, volumeStorage.Name, pvcName, pvcNamespace).Set(float64(*volumeStorage.UsedBytes))
-				}
-				if volumeStorage.InodesFree != nil {
-					collectors.podVolumeStorageInodesFree.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace, volumeStorage.Name, pvcName, pvcNamespace).Set(float64(*volumeStorage.InodesFree))
-				}
-				if volumeStorage.Inodes != nil {
-					collectors.podVolumeStorageInodes.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace, volumeStorage.Name, pvcName, pvcNamespace).Set(float64(*volumeStorage.Inodes))
-				}
-				if volumeStorage.InodesUsed != nil {
-					collectors.podVolumeStorageInodesUsed.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace, volumeStorage.Name, pvcName, pvcNamespace).Set(float64(*volumeStorage.InodesUsed))
-				}
+
+		for _, volume := range pod.VolumeStats {
+			pvcName, pvcNamespace := "", ""
+			if volume.PVCRef != nil {
+				pvcName = volume.PVCRef.Name
+				pvcNamespace = volume.PVCRef.Namespace
 			}
+			volumeLabels := []string{nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace, volume.Name, pvcName, pvcNamespace}
+			collectFsStats(&volume.FsStats, volumeCs, volumeLabels)
 		}
 	}
 
-	if runtime := summary.Node.Runtime; runtime != nil {
-		if runtime.ImageFs.AvailableBytes != nil {
-			collectors.nodeRuntimeImageFSAvailableBytes.WithLabelValues(nodeName).Set(float64(*runtime.ImageFs.AvailableBytes))
-		}
-		if runtime.ImageFs.CapacityBytes != nil {
-			collectors.nodeRuntimeImageFSCapacityBytes.WithLabelValues(nodeName).Set(float64(*runtime.ImageFs.CapacityBytes))
-		}
-		if runtime.ImageFs.UsedBytes != nil {
-			collectors.nodeRuntimeImageFSUsedBytes.WithLabelValues(nodeName).Set(float64(*runtime.ImageFs.UsedBytes))
-		}
-		if runtime.ImageFs.InodesFree != nil {
-			collectors.nodeRuntimeImageFSInodesFree.WithLabelValues(nodeName).Set(float64(*runtime.ImageFs.InodesFree))
-		}
-		if runtime.ImageFs.Inodes != nil {
-			collectors.nodeRuntimeImageFSInodes.WithLabelValues(nodeName).Set(float64(*runtime.ImageFs.Inodes))
-		}
-		if runtime.ImageFs.InodesUsed != nil {
-			collectors.nodeRuntimeImageFSInodesUsed.WithLabelValues(nodeName).Set(float64(*runtime.ImageFs.InodesUsed))
-		}
+	if runtime := summary.Node.Runtime; runtime != nil && runtime.ImageFs != nil {
+		collectFsStats(runtime.ImageFs, imageFsCs, nodeLabels)
 	}
 }
 
