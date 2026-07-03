@@ -5,10 +5,13 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
 	"strconv"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -23,11 +26,72 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )
 
+const defaultScrapeTimeout = 60 * time.Second
+
 var (
 	flagKubeConfigPath = flag.String("kubeconfig", "", "Path of a kubeconfig file, if not provided the app will try $KUBECONFIG, $HOME/.kube/config or in cluster config")
 	flagListenAddress  = flag.String("listen-address", ":9779", "Listen address")
 	metricsNamespace   = "kube_summary"
+
+	logHandler = slog.NewTextHandler(os.Stderr, nil)
+
+	// errorLog bridges slog to *log.Logger for
+	// promhttp.HandlerOpts.ErrorLog, which is typed *log.Logger.
+	// Exposition errors flow through the same handler as the rest of
+	// the exporter's logs.
+	errorLog = slog.NewLogLogger(logHandler, slog.LevelError)
 )
+
+func init() {
+	slog.SetDefault(slog.New(logHandler))
+}
+
+// scrapeMetrics are per-request operational gauges exposed alongside a node's
+// summary metrics. They are registered on the request-scoped registry rather
+// than a global one so that they are actually scraped via /node/{node} and
+// /nodes (the endpoints Prometheus hits), and so a caller-supplied node name
+// on /node/{node} cannot accumulate unbounded series across requests.
+type scrapeMetrics struct {
+	success  *prometheus.GaugeVec
+	duration *prometheus.GaugeVec
+}
+
+// newScrapeMetrics builds the scrape gauges and registers them on registry.
+func newScrapeMetrics(registry *prometheus.Registry) scrapeMetrics {
+	m := scrapeMetrics{
+		success: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: metricsNamespace,
+			Subsystem: "exporter",
+			Name:      "scrape_success",
+			Help:      "Whether the last scrape of a node's /stats/summary succeeded (1) or failed (0)",
+		}, []string{"node"}),
+		duration: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: metricsNamespace,
+			Subsystem: "exporter",
+			Name:      "last_scrape_duration_seconds",
+			Help:      "Duration of the last scrape of a node's /stats/summary in seconds",
+		}, []string{"node"}),
+	}
+	registry.MustRegister(m.success, m.duration)
+	return m
+}
+
+// observe records the outcome and duration of a single node scrape.
+func (m scrapeMetrics) observe(node string, d time.Duration, err error) {
+	m.duration.WithLabelValues(node).Set(d.Seconds())
+	success := 1.0
+	if err != nil {
+		success = 0
+	}
+	m.success.WithLabelValues(node).Set(success)
+}
+
+// handlerOpts configures promhttp to keep emitting remaining metrics even when
+// a single metric errors, and to surface exposition errors via errorLog.
+var handlerOpts = promhttp.HandlerOpts{
+	ErrorHandling: promhttp.ContinueOnError,
+	ErrorLog:      errorLog,
+}
 
 type Collectors struct {
 	containerLogsInodesFree           *prometheus.GaugeVec
@@ -252,123 +316,113 @@ func (c *Collectors) register(registry *prometheus.Registry) {
 	)
 }
 
+// fsCollectors groups the six GaugeVecs that mirror the fields of a
+// stats.FsStats, in the order availableBytes, capacityBytes, usedBytes,
+// inodesFree, inodes, inodesUsed.
+type fsCollectors struct {
+	availableBytes *prometheus.GaugeVec
+	capacityBytes  *prometheus.GaugeVec
+	usedBytes      *prometheus.GaugeVec
+	inodesFree     *prometheus.GaugeVec
+	inodes         *prometheus.GaugeVec
+	inodesUsed     *prometheus.GaugeVec
+}
+
+// collectFsStats sets all six collectors from a single FsStats using the same
+// label values for every series. Nil fields are skipped.
+func collectFsStats(fs *stats.FsStats, c fsCollectors, labels []string) {
+	setGauge(c.availableBytes, labels, fs.AvailableBytes)
+	setGauge(c.capacityBytes, labels, fs.CapacityBytes)
+	setGauge(c.usedBytes, labels, fs.UsedBytes)
+	setGauge(c.inodesFree, labels, fs.InodesFree)
+	setGauge(c.inodes, labels, fs.Inodes)
+	setGauge(c.inodesUsed, labels, fs.InodesUsed)
+}
+
+// setGauge sets vec for the given labels to v if v is non-nil.
+func setGauge(vec *prometheus.GaugeVec, labels []string, v *uint64) {
+	if v != nil {
+		vec.WithLabelValues(labels...).Set(float64(*v))
+	}
+}
+
 // collectSummaryMetrics collects metrics from a /stats/summary response
 func collectSummaryMetrics(summary *stats.Summary, collectors *Collectors) {
 	nodeName := summary.Node.NodeName
 
+	logsCs := fsCollectors{
+		availableBytes: collectors.containerLogsAvailableBytes,
+		capacityBytes:  collectors.containerLogsCapacityBytes,
+		usedBytes:      collectors.containerLogsUsedBytes,
+		inodesFree:     collectors.containerLogsInodesFree,
+		inodes:         collectors.containerLogsInodes,
+		inodesUsed:     collectors.containerLogsInodesUsed,
+	}
+	rootfsCs := fsCollectors{
+		availableBytes: collectors.containerRootFsAvailableBytes,
+		capacityBytes:  collectors.containerRootFsCapacityBytes,
+		usedBytes:      collectors.containerRootFsUsedBytes,
+		inodesFree:     collectors.containerRootFsInodesFree,
+		inodes:         collectors.containerRootFsInodes,
+		inodesUsed:     collectors.containerRootFsInodesUsed,
+	}
+	ephemeralCs := fsCollectors{
+		availableBytes: collectors.podEphemeralStorageAvailableBytes,
+		capacityBytes:  collectors.podEphemeralStorageCapacityBytes,
+		usedBytes:      collectors.podEphemeralStorageUsedBytes,
+		inodesFree:     collectors.podEphemeralStorageInodesFree,
+		inodes:         collectors.podEphemeralStorageInodes,
+		inodesUsed:     collectors.podEphemeralStorageInodesUsed,
+	}
+	volumeCs := fsCollectors{
+		availableBytes: collectors.podVolumeStorageAvailableBytes,
+		capacityBytes:  collectors.podVolumeStorageCapacityBytes,
+		usedBytes:      collectors.podVolumeStorageUsedBytes,
+		inodesFree:     collectors.podVolumeStorageInodesFree,
+		inodes:         collectors.podVolumeStorageInodes,
+		inodesUsed:     collectors.podVolumeStorageInodesUsed,
+	}
+	imageFsCs := fsCollectors{
+		availableBytes: collectors.nodeRuntimeImageFSAvailableBytes,
+		capacityBytes:  collectors.nodeRuntimeImageFSCapacityBytes,
+		usedBytes:      collectors.nodeRuntimeImageFSUsedBytes,
+		inodesFree:     collectors.nodeRuntimeImageFSInodesFree,
+		inodes:         collectors.nodeRuntimeImageFSInodes,
+		inodesUsed:     collectors.nodeRuntimeImageFSInodesUsed,
+	}
+
+	nodeLabels := []string{nodeName}
+
 	for _, pod := range summary.Pods {
+		podLabels := []string{nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace}
+
 		for _, container := range pod.Containers {
-			if logs := container.Logs; logs != nil {
-				if inodesFree := logs.InodesFree; inodesFree != nil {
-					collectors.containerLogsInodesFree.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace, container.Name).Set(float64(*inodesFree))
-				}
-				if inodes := logs.Inodes; inodes != nil {
-					collectors.containerLogsInodes.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace, container.Name).Set(float64(*inodes))
-				}
-				if inodesUsed := logs.InodesUsed; inodesUsed != nil {
-					collectors.containerLogsInodesUsed.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace, container.Name).Set(float64(*inodesUsed))
-				}
-				if availableBytes := logs.AvailableBytes; availableBytes != nil {
-					collectors.containerLogsAvailableBytes.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace, container.Name).Set(float64(*availableBytes))
-				}
-				if capacityBytes := logs.CapacityBytes; capacityBytes != nil {
-					collectors.containerLogsCapacityBytes.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace, container.Name).Set(float64(*capacityBytes))
-				}
-				if usedBytes := logs.UsedBytes; usedBytes != nil {
-					collectors.containerLogsUsedBytes.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace, container.Name).Set(float64(*usedBytes))
-				}
+			containerLabels := []string{nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace, container.Name}
+			if container.Logs != nil {
+				collectFsStats(container.Logs, logsCs, containerLabels)
 			}
-			if rootfs := container.Rootfs; rootfs != nil {
-				if inodesFree := rootfs.InodesFree; inodesFree != nil {
-					collectors.containerRootFsInodesFree.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace, container.Name).Set(float64(*inodesFree))
-				}
-				if inodes := rootfs.Inodes; inodes != nil {
-					collectors.containerRootFsInodes.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace, container.Name).Set(float64(*inodes))
-				}
-				if inodesUsed := rootfs.InodesUsed; inodesUsed != nil {
-					collectors.containerRootFsInodesUsed.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace, container.Name).Set(float64(*inodesUsed))
-				}
-				if availableBytes := rootfs.AvailableBytes; availableBytes != nil {
-					collectors.containerRootFsAvailableBytes.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace, container.Name).Set(float64(*availableBytes))
-				}
-				if capacityBytes := rootfs.CapacityBytes; capacityBytes != nil {
-					collectors.containerRootFsCapacityBytes.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace, container.Name).Set(float64(*capacityBytes))
-				}
-				if usedBytes := rootfs.UsedBytes; usedBytes != nil {
-					collectors.containerRootFsUsedBytes.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace, container.Name).Set(float64(*usedBytes))
-				}
+			if container.Rootfs != nil {
+				collectFsStats(container.Rootfs, rootfsCs, containerLabels)
 			}
 		}
 
-		if ephemeralStorage := pod.EphemeralStorage; ephemeralStorage != nil {
-			if ephemeralStorage.AvailableBytes != nil {
-				collectors.podEphemeralStorageAvailableBytes.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace).Set(float64(*ephemeralStorage.AvailableBytes))
-			}
-			if ephemeralStorage.CapacityBytes != nil {
-				collectors.podEphemeralStorageCapacityBytes.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace).Set(float64(*ephemeralStorage.CapacityBytes))
-			}
-			if ephemeralStorage.UsedBytes != nil {
-				collectors.podEphemeralStorageUsedBytes.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace).Set(float64(*ephemeralStorage.UsedBytes))
-			}
-			if ephemeralStorage.InodesFree != nil {
-				collectors.podEphemeralStorageInodesFree.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace).Set(float64(*ephemeralStorage.InodesFree))
-			}
-			if ephemeralStorage.Inodes != nil {
-				collectors.podEphemeralStorageInodes.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace).Set(float64(*ephemeralStorage.Inodes))
-			}
-			if ephemeralStorage.InodesUsed != nil {
-				collectors.podEphemeralStorageInodesUsed.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace).Set(float64(*ephemeralStorage.InodesUsed))
-			}
+		if pod.EphemeralStorage != nil {
+			collectFsStats(pod.EphemeralStorage, ephemeralCs, podLabels)
 		}
-		if volumeStats := pod.VolumeStats; volumeStats != nil {
-			for _, volumeStorage := range volumeStats {
-				pvcName := ""
-				pvcNamespace := ""
-				if volumeStorage.PVCRef != nil {
-					pvcName = volumeStorage.PVCRef.Name
-					pvcNamespace = volumeStorage.PVCRef.Namespace
-				}
-				if volumeStorage.AvailableBytes != nil {
-					collectors.podVolumeStorageAvailableBytes.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace, volumeStorage.Name, pvcName, pvcNamespace).Set(float64(*volumeStorage.AvailableBytes))
-				}
-				if volumeStorage.CapacityBytes != nil {
-					collectors.podVolumeStorageCapacityBytes.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace, volumeStorage.Name, pvcName, pvcNamespace).Set(float64(*volumeStorage.CapacityBytes))
-				}
-				if volumeStorage.UsedBytes != nil {
-					collectors.podVolumeStorageUsedBytes.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace, volumeStorage.Name, pvcName, pvcNamespace).Set(float64(*volumeStorage.UsedBytes))
-				}
-				if volumeStorage.InodesFree != nil {
-					collectors.podVolumeStorageInodesFree.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace, volumeStorage.Name, pvcName, pvcNamespace).Set(float64(*volumeStorage.InodesFree))
-				}
-				if volumeStorage.Inodes != nil {
-					collectors.podVolumeStorageInodes.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace, volumeStorage.Name, pvcName, pvcNamespace).Set(float64(*volumeStorage.Inodes))
-				}
-				if volumeStorage.InodesUsed != nil {
-					collectors.podVolumeStorageInodesUsed.WithLabelValues(nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace, volumeStorage.Name, pvcName, pvcNamespace).Set(float64(*volumeStorage.InodesUsed))
-				}
+
+		for _, volume := range pod.VolumeStats {
+			pvcName, pvcNamespace := "", ""
+			if volume.PVCRef != nil {
+				pvcName = volume.PVCRef.Name
+				pvcNamespace = volume.PVCRef.Namespace
 			}
+			volumeLabels := []string{nodeName, pod.PodRef.Name, pod.PodRef.UID, pod.PodRef.Namespace, volume.Name, pvcName, pvcNamespace}
+			collectFsStats(&volume.FsStats, volumeCs, volumeLabels)
 		}
 	}
 
-	if runtime := summary.Node.Runtime; runtime != nil {
-		if runtime.ImageFs.AvailableBytes != nil {
-			collectors.nodeRuntimeImageFSAvailableBytes.WithLabelValues(nodeName).Set(float64(*runtime.ImageFs.AvailableBytes))
-		}
-		if runtime.ImageFs.CapacityBytes != nil {
-			collectors.nodeRuntimeImageFSCapacityBytes.WithLabelValues(nodeName).Set(float64(*runtime.ImageFs.CapacityBytes))
-		}
-		if runtime.ImageFs.UsedBytes != nil {
-			collectors.nodeRuntimeImageFSUsedBytes.WithLabelValues(nodeName).Set(float64(*runtime.ImageFs.UsedBytes))
-		}
-		if runtime.ImageFs.InodesFree != nil {
-			collectors.nodeRuntimeImageFSInodesFree.WithLabelValues(nodeName).Set(float64(*runtime.ImageFs.InodesFree))
-		}
-		if runtime.ImageFs.Inodes != nil {
-			collectors.nodeRuntimeImageFSInodes.WithLabelValues(nodeName).Set(float64(*runtime.ImageFs.Inodes))
-		}
-		if runtime.ImageFs.InodesUsed != nil {
-			collectors.nodeRuntimeImageFSInodesUsed.WithLabelValues(nodeName).Set(float64(*runtime.ImageFs.InodesUsed))
-		}
+	if runtime := summary.Node.Runtime; runtime != nil && runtime.ImageFs != nil {
+		collectFsStats(runtime.ImageFs, imageFsCs, nodeLabels)
 	}
 }
 
@@ -379,18 +433,24 @@ func nodeHandler(w http.ResponseWriter, r *http.Request, kubeClient *kubernetes.
 	ctx, cancel := timeoutContext(r)
 	defer cancel()
 
-	summary, err := nodeSummary(ctx, kubeClient, node)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Error querying /stats/summary for %s: %v", node, err), http.StatusInternalServerError)
-		return
-	}
-
 	collectors := newCollectors()
 	registry := prometheus.NewRegistry()
 	collectors.register(registry)
-	collectSummaryMetrics(summary, collectors)
+	scrape := newScrapeMetrics(registry)
 
-	h := promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
+	start := time.Now()
+	summary, err := nodeSummary(ctx, kubeClient, node)
+	scrape.observe(node, time.Since(start), err)
+	if err != nil {
+		// Serve the registry with scrape_success=0 rather than failing the
+		// HTTP request, so the failure signal reaches Prometheus (a 500 would
+		// drop every metric, including scrape_success).
+		slog.Error("scrape node", "node", node, "err", err)
+	} else {
+		collectSummaryMetrics(summary, collectors)
+	}
+
+	h := promhttp.HandlerFor(registry, handlerOpts)
 	h.ServeHTTP(w, r)
 }
 
@@ -408,11 +468,13 @@ func allNodesHandler(w http.ResponseWriter, r *http.Request, kubeClient *kuberne
 	collectors := newCollectors()
 	registry := prometheus.NewRegistry()
 	collectors.register(registry)
+	scrape := newScrapeMetrics(registry)
 
 	type result struct {
-		summary *stats.Summary
-		node    string
-		err     error
+		summary  *stats.Summary
+		node     string
+		err      error
+		duration time.Duration
 	}
 
 	results := make(chan result, len(nodes.Items))
@@ -424,12 +486,13 @@ func allNodesHandler(w http.ResponseWriter, r *http.Request, kubeClient *kuberne
 		go func(n string) {
 			defer wg.Done()
 
-			// Each nodeSummary call gets the shared context (with timeout)
+			start := time.Now()
 			summary, err := nodeSummary(ctx, kubeClient, n)
 			results <- result{
-				summary: summary,
-				node:    n,
-				err:     err,
+				summary:  summary,
+				node:     n,
+				err:      err,
+				duration: time.Since(start),
 			}
 		}(node.Name)
 	}
@@ -442,16 +505,17 @@ func allNodesHandler(w http.ResponseWriter, r *http.Request, kubeClient *kuberne
 
 	// Consume results
 	for res := range results {
+		scrape.observe(res.node, res.duration, res.err)
 		if res.err != nil {
-			// Log error but DO NOT fail the whole scrape
-			fmt.Printf("Error scraping %s: %v\n", res.node, res.err)
+			// Record the failure and DO NOT fail the whole scrape
+			slog.Error("scrape node", "node", res.node, "err", res.err)
 			continue
 		}
 		collectSummaryMetrics(res.summary, collectors)
 	}
 
 	// Return all aggregated metrics
-	h := promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
+	h := promhttp.HandlerFor(registry, handlerOpts)
 	h.ServeHTTP(w, r)
 }
 
@@ -460,26 +524,28 @@ func nodeSummary(ctx context.Context, kubeClient *kubernetes.Clientset, nodeName
 	req := kubeClient.CoreV1().RESTClient().Get().Resource("nodes").Name(nodeName).SubResource("proxy").Suffix("stats/summary")
 	resp, err := req.DoRaw(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("error querying /stats/summary for %s: %v", nodeName, err)
+		return nil, fmt.Errorf("error querying /stats/summary for %s: %w", nodeName, err)
 	}
 
 	summary := &stats.Summary{}
 	if err := json.Unmarshal(resp, summary); err != nil {
-		return nil, fmt.Errorf("error unmarshaling /stats/summary response for %s: %v", nodeName, err)
+		return nil, fmt.Errorf("error unmarshaling /stats/summary response for %s: %w", nodeName, err)
 	}
 
 	return summary, nil
 }
 
-// timeoutContext returns a context with timeout based on the X-Prometheus-Scrape-Timeout-Seconds header
+// timeoutContext returns a context with a scrape timeout. The timeout is taken
+// from the X-Prometheus-Scrape-Timeout-Seconds header when present, otherwise
+// defaultScrapeTimeout is applied so a hung kubelet proxy cannot block the
+// scrape indefinitely.
 func timeoutContext(r *http.Request) (context.Context, context.CancelFunc) {
 	if v := r.Header.Get("X-Prometheus-Scrape-Timeout-Seconds"); v != "" {
-		timeoutSeconds, err := strconv.ParseFloat(v, 64)
-		if err == nil {
+		if timeoutSeconds, err := strconv.ParseFloat(v, 64); err == nil {
 			return context.WithTimeout(r.Context(), time.Duration(timeoutSeconds*float64(time.Second)))
 		}
 	}
-	return context.WithCancel(r.Context())
+	return context.WithTimeout(r.Context(), defaultScrapeTimeout)
 }
 
 // newKubeClient returns a Kubernetes client (clientset) with configurable
@@ -514,7 +580,7 @@ func main() {
 
 	kubeClient, err := newKubeClient(*flagKubeConfigPath)
 	if err != nil {
-		fmt.Printf("[Error] Cannot create kube client: %v", err)
+		slog.Error("create kube client", "err", err)
 		os.Exit(1)
 	}
 
@@ -538,6 +604,37 @@ func main() {
 </html>`))
 	})
 
-	fmt.Printf("Listening on %s\n", *flagListenAddress)
-	fmt.Printf("error: %v\n", http.ListenAndServe(*flagListenAddress, r))
+	srv := &http.Server{
+		Addr:         *flagListenAddress,
+		Handler:      r,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 2 * time.Minute,
+		IdleTimeout:  60 * time.Second,
+	}
+
+	// Graceful shutdown on SIGINT/SIGTERM so in-flight scrapes finish and
+	// Prometheus sees a clean up=0 instead of a mid-scrape termination.
+	// idleClosed is closed once Shutdown has finished draining; main waits on
+	// it after ListenAndServe unblocks so the process does not exit while
+	// connections are still being drained.
+	idleClosed := make(chan struct{})
+	go func() {
+		sigCh := make(chan os.Signal, 1)
+		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+		sig := <-sigCh
+		slog.Info("received signal, shutting down", "signal", sig)
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := srv.Shutdown(shutdownCtx); err != nil {
+			slog.Error("shutdown", "err", err)
+		}
+		close(idleClosed)
+	}()
+
+	slog.Info("listening", "address", *flagListenAddress)
+	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		slog.Error("serve", "err", err)
+		os.Exit(1)
+	}
+	<-idleClosed
 }

@@ -71,6 +71,17 @@ You can also visit http://localhost:9779/nodes to retrieve metrics for all nodes
 | kube_summary_pod_volume_storage_inodes_used        | Number of used Inodes for pod Volume storage                         | node, pod, uid, namespace, name, persistentvolumeclaim, pvc_namespace |
 | kube_summary_pod_volume_storage_used_bytes         | Number of bytes of Volume storage that are consumed by the pod       | node, pod, uid, namespace, name, persistentvolumeclaim, pvc_namespace |
 
+### Exporter metrics
+
+These per-scrape operational metrics are emitted alongside the node metrics on
+the `/node/{node}` and `/nodes` endpoints (not on `/metrics`), so they share the
+scrape that produced them.
+
+| Metric                                              | Description                                                  | Labels |
+| --------------------------------------------------- | ------------------------------------------------------------ | ------ |
+| kube_summary_exporter_scrape_success                | Whether the last scrape of a node's /stats/summary succeeded (1) or failed (0) | node   |
+| kube_summary_exporter_last_scrape_duration_seconds  | Duration of the last scrape of a node's /stats/summary in seconds | node   |
+
 ## Development
 
 ### Running Tests
@@ -81,4 +92,11 @@ To run the tests, use the following command:
 go test ./...
 ```
 
-The main test file (`main_test.go`) includes a test for the `collectSummaryMetrics` function, which verifies that the metrics are collected correctly from a sample JSON file (`test-summary.json`).
+The main test file (`main_test.go`) includes a test for the
+`collectSummaryMetrics` function. The test builds a `stats.Summary` fixture
+programmatically, registers all collectors, and asserts representative series
+per metric category are emitted with the expected values and labels. The fixture
+reuses a pod uid across two nodes to verify series are keyed per node, and an
+all-nil FsStats pod to verify the per-field nil guards emit nothing. A second
+test drives `collectSummaryMetrics` concurrently to guard the shared-Collectors
+write path (`go test -race`).

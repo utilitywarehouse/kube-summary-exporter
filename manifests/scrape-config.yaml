@@ -1,6 +1,7 @@
 # Scrape config for the Summary API exporter.
 # This assumes that the exporter is available at kube-summary-exporter:9779
 - job_name: "kubernetes-summary"
+  scrape_timeout: 60s
   kubernetes_sd_configs:
     - role: node
   relabel_configs:
