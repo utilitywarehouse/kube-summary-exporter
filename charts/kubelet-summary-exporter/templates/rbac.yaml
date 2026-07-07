@@ -1,0 +1,46 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "kubelet-summary-exporter.fullname" . }}
+  labels:
+    {{- include "kubelet-summary-exporter.labels" . | nindent 4 }}
+    {{- with .Values.rbac.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.rbac.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+rules:
+  - apiGroups: [""]
+    resources:
+      - nodes
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources:
+      - nodes/stats
+      - nodes/proxy
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "kubelet-summary-exporter.fullname" . }}
+  labels:
+    {{- include "kubelet-summary-exporter.labels" . | nindent 4 }}
+    {{- with .Values.rbac.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.rbac.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "kubelet-summary-exporter.fullname" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "kubelet-summary-exporter.fullname" . }}
+    namespace: {{ .Release.Namespace }}

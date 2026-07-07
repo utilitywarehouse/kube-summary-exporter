@@ -1,0 +1,78 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "kubelet-summary-exporter.fullname" . }}
+  labels:
+    {{- include "kubelet-summary-exporter.labels" . | nindent 4 }}
+    {{- with .Values.serviceAccount.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.serviceAccount.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kubelet-summary-exporter.fullname" . }}
+  labels:
+    {{- include "kubelet-summary-exporter.labels" . | nindent 4 }}
+    {{- with .Values.service.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  ports:
+    - name: {{ .Values.ports.metrics.name | quote }}
+      port: {{ .Values.ports.metrics.servicePort }}
+      targetPort: {{ .Values.ports.metrics.name | quote }}
+      protocol: {{ .Values.ports.metrics.protocol }}
+  selector:
+    {{- include "kubelet-summary-exporter.selectorLabels" . | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kubelet-summary-exporter.fullname" . }}
+  labels:
+    {{- include "kubelet-summary-exporter.labels" . | nindent 4 }}
+    {{- with .Values.deployment.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.deployment.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.deployment.replicas }}
+  selector:
+    matchLabels:
+      {{- include "kubelet-summary-exporter.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "kubelet-summary-exporter.selectorLabels" . | nindent 8 }}
+        {{- with .Values.deployment.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.deployment.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ include "kubelet-summary-exporter.fullname" . }}
+      containers:
+        - name: app
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          ports:
+            - name: {{ .Values.ports.metrics.name | quote }}
+              containerPort: {{ .Values.ports.metrics.containerPort }}
+              protocol: {{ .Values.ports.metrics.protocol }}

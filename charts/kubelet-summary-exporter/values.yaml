@@ -1,0 +1,46 @@
+nameOverride: ""
+fullnameOverride: ""
+
+commonLabels: {}
+
+image:
+  repository: quay.io/utilitywarehouse/kube-summary-exporter
+  tag: latest
+  pullPolicy: IfNotPresent
+
+resources:
+  limits:
+    cpu: 20m
+    memory: 50Mi
+  requests:
+    cpu: 20m
+    memory: 50Mi
+
+ports:
+  metrics:
+    name: stats-metrics
+    containerPort: 9779
+    servicePort: 9779
+    protocol: TCP
+
+serviceAccount:
+  labels: {}
+  annotations: {}
+
+service:
+  labels: {}
+  annotations: {}
+
+deployment:
+  replicas: 1
+  labels: {}
+  annotations: {}
+  podLabels: {}
+  podAnnotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/path: "/nodes"
+    prometheus.io/port: "9779"
+
+rbac:
+  labels: {}
+  annotations: {}
