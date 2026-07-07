@@ -40,3 +40,10 @@ spec:
           ports:
             - name: tcp
               containerPort: 9779
+          resources:
+            requests:
+              cpu: 0
+              memory: 64Mi
+            limits:
+              cpu: 2
+              memory: 256Mi
