@@ -24,6 +24,21 @@ You can also visit http://localhost:9779/nodes to retrieve metrics for all nodes
 
 [Here's an example scrape config.](manifests/scrape-config.yaml)
 
+## Deployment
+
+Kustomize manifests are provided under [`manifests/`](manifests) as a base for
+your own deployment.
+
+### Why no Helm chart?
+
+We don't use Helm ourselves, so we're not able to maintain a chart or support
+Helm-specific issues. We'd rather keep the plain manifests correct and
+well-maintained than take on tooling we don't use in production.
+
+If you'd like to maintain a Helm chart for this project, you're welcome to
+publish one in a separate repository — we're just not able to host or support
+it here.
+
 ## Endpoints
 
 - `/`: Home page with links to other endpoints
