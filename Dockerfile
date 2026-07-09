@@ -10,7 +10,7 @@ ARG TARGETOS
 ARG TARGETARCH
 RUN GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o /kube-summary-exporter .
 
-FROM alpine:3.20
+FROM alpine:3.24
 COPY --from=build /kube-summary-exporter /kube-summary-exporter
 
 ENTRYPOINT [ "/kube-summary-exporter"]
