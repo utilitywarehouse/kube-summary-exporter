@@ -39,6 +39,22 @@ If you'd like to maintain a Helm chart for this project, you're welcome to
 publish one in a separate repository — we're just not able to host or support
 it here.
 
+### Pod Security
+
+The image and base manifests target the Kubernetes Pod Security Standards
+"restricted" level, so they can be deployed to clusters that enforce it:
+
+- the image runs as an unprivileged user (uid 65534) and exposes port 9779
+- the deployment drops all capabilities, disables privilege escalation, and
+  enables the runtime default seccomp profile
+
+The deployment intentionally leaves `appArmorProfile` unset (the `restricted`
+standard requires it from Kubernetes 1.30+, but setting it unconditionally
+prevents pod startup on nodes where AppArmor is not enabled in the kernel). If
+your cluster enforces `restricted` natively and its nodes support AppArmor, opt
+in via the [`apparmor` kustomize
+component](manifests/components/apparmor/README.md).
+
 ## Endpoints
 
 - `/`: Home page with links to other endpoints
