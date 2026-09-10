@@ -37,6 +37,15 @@ spec:
       containers:
         - name: kube-summary-exporter
           image: quay.io/utilitywarehouse/kube-summary-exporter:latest
+          securityContext:
+            # Satisfies the Kubernetes PSS "restricted" standard.
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
           ports:
             - name: tcp
               containerPort: 9779

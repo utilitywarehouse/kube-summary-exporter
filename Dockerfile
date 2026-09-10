@@ -13,4 +13,10 @@ RUN GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o /kube-summary-exporter .
 FROM alpine:3.24
 COPY --from=build /kube-summary-exporter /kube-summary-exporter
 
+# Run as an unprivileged user (alpine "nobody") so the image satisfies the
+# Kubernetes PSS "restricted" standard in clusters that enforce it.
+USER 65534:65534
+
+EXPOSE 9779
+
 ENTRYPOINT [ "/kube-summary-exporter"]

@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# Opt-in AppArmor hardening for the kube-summary-exporter Deployment.
+# Applies the runtime/default profile that the Kubernetes PSS "restricted"
+# standard requires from v1.30 onwards. See README.md in this directory for
+# when to enable this component.
+patches:
+  - target:
+      kind: Deployment
+      name: kube-summary-exporter
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/securityContext/appArmorProfile
+        value:
+          type: RuntimeDefault
