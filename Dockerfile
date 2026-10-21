@@ -1,11 +1,11 @@
-FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS build
+FROM --platform=$BUILDPLATFORM golang:1.27-alpine AS build
 WORKDIR /src
 COPY go.* ./
 RUN go mod download
 COPY . .
 ENV CGO_ENABLED=0
 RUN apk --no-cache add git \
-      && go test ./...
+    && go test ./...
 ARG TARGETOS
 ARG TARGETARCH
 RUN GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o /kube-summary-exporter .
