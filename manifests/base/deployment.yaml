@@ -36,7 +36,7 @@ spec:
       serviceAccountName: kube-summary-exporter
       containers:
         - name: kube-summary-exporter
-          image: quay.io/utilitywarehouse/kube-summary-exporter:0.4.10
+          image: quay.io/utilitywarehouse/kube-summary-exporter:latest
           securityContext:
             # Satisfies the Kubernetes PSS "restricted" standard.
             allowPrivilegeEscalation: false
